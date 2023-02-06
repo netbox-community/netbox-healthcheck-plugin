@@ -5,5 +5,7 @@ from . import models, views
 
 
 urlpatterns = (
-    path('healthcheck/', include('health_check.urls')),
+
+    path('healthchecks/', views.HealthCheckListView.as_view(), name='healthcheck_list'),
+    path('healthcheck/', include('health_check.urls'), name='healthcheck_view'),
 )
