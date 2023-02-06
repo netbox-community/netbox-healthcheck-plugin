@@ -16,7 +16,7 @@ setup(
     author_email='ahanson@netboxlabs.com',
     python_requires='>=3.8',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
