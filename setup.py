@@ -7,7 +7,9 @@ from setuptools import setup, find_packages
 with open('README.md') as readme_file:
     readme = readme_file.read()
 
-requirements = []
+requirements = [
+    'django-health-check>=3,<4'
+]
 
 setup(
     author="Arthur Hanson",

@@ -14,6 +14,12 @@ class HealthCheckConfig(PluginConfig):
     description = 'NetBox plugin for HealthCheck.'
     version = 'version'
     base_url = 'netbox_healthcheck_plugin'
+    django_apps = [
+        'health_check',
+        'health_check.db',
+        'health_check.contrib.migrations',
+        'health_check.contrib.redis',
+    ]
 
 
 config = HealthCheckConfig
