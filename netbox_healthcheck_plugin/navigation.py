@@ -4,7 +4,7 @@ from utilities.choices import ButtonColorChoices
 
 menu_items = (
     PluginMenuItem(
-        link='plugins:netbox_healthcheck_plugin:health_check:health_check_home',
+        link='plugins:netbox_healthcheck_plugin:healthcheck_list',
         link_text='HealthCheck',
         buttons=None
     ),

@@ -1,29 +1,64 @@
 
-{% extends 'generic/object.html' %}
-{% load render_table from django_tables2 %}
+{% extends 'base/layout.html' %}
 
-{% block content %}
-  <div class="row mb-3">
-    <div class="col col-md-6">
+{% block head %}
+{% endblock head %}
+
+{% block title %}Health Checks{% endblock %}
+
+{% block tabs %}
+  <ul class="nav nav-tabs px-3">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="object-list-tab" data-bs-toggle="tab" data-bs-target="#object-list" type="button" role="tab" aria-controls="edit-form" aria-selected="true">
+        Results {% badge table.page.paginator.count %}
+      </button>
+    </li>
+  </ul>
+{% endblock tabs %}
+
+{% block content-wrapper %}
+  <div class="tab-content">
+
+    {# Object list #}
+    <div class="tab-pane show active" id="object-list" role="tabpanel" aria-labelledby="object-list-tab">
+
+    <div class="col col-md-12">
       <div class="card">
 
         <h5 class="card-header">NetBox HealthCheck Plugin</h5>
 
         <div class="card-body">
-          <table class="table table-hover attr-table">
-            <tr>
-              <th scope="row">Name</th>
-              <td>{{ object.name }}</td>
-            </tr>
+          <table class="table table-striped">
+            <thead>
+              <th colspan="2">Service</th>
+              <th>Status</th>
+              <th class="align-right">Time Taken</th>
+            </thead>
+            <tbody>
+              {% for plugin in plugins %}
+                <tr>
+                  <td class="icons">
+                    <span aria-hidden="true">
+                      {% if plugin.status %}
+                        &#9989;
+                      {% else %}
+                        &#10060;
+                      {% endif %}
+                    </span>
+                  </td>
+                  <td>{{ plugin.identifier }}</td>
+                  <td>{{ plugin.pretty_status | linebreaks }}</td>
+                  <td class="align-right">{{ plugin.time_taken|floatformat:4 }} seconds</td>
+                </tr>
+              {% endfor %}
+            </tbody>
           </table>
         </div>
       </div>
       {% include 'inc/panels/custom_fields.html' %}
     </div>
-    <div class="col col-md-6">
-      {% include 'inc/panels/tags.html' %}
-      {% include 'inc/panels/comments.html' %}
+
     </div>
   </div>
-{% endblock content %}
 
+{% endblock content-wrapper %}

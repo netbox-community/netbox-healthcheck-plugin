@@ -1,9 +1,8 @@
 from django.conf.urls import include
 from django.urls import path
 
-from netbox.views.generic import ObjectChangeLogView
-
+from . import views
 
 urlpatterns = (
-    path('healthcheck/', include('health_check.urls')),
+    path('healthcheck/', views.HealthCheckListView.as_view(), name='healthcheck_list'),
 )
