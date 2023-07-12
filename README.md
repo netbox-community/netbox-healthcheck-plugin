@@ -32,7 +32,7 @@ pip install git+https://github.com/arthanson/netbox_healthcheck_plugin
 or by adding to your `local_requirements.txt` or `plugin_requirements.txt` (netbox-docker):
 
 ```bash
-git+https://github.com/arthanson/netbox_healthcheck_plugin
+git+https://github.com/netbox-community/netbox-healthcheck-plugin
 ```
 
 Enable the plugin in `/opt/netbox/netbox/netbox/configuration.py`,
