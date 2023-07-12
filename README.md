@@ -26,7 +26,7 @@ For adding to a NetBox Docker setup see
 While this is still in development and not yet on pypi you can install with pip:
 
 ```bash
-pip install git+https://github.com/arthanson/netbox_healthcheck_plugin
+pip install git+https://github.com/netbox-community/netbox-healthcheck-plugin
 ```
 
 or by adding to your `local_requirements.txt` or `plugin_requirements.txt` (netbox-docker):
