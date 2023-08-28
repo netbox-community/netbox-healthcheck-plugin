@@ -40,11 +40,11 @@ Enable the plugin in `/opt/netbox/netbox/netbox/configuration.py`,
 
 ```python
 PLUGINS = [
-    'HealthCheck'
+    'netbox_healthcheck_plugin'
 ]
 
 PLUGINS_CONFIG = {
-    "HealthCheck": {},
+    "netbox_healthcheck_plugin": {},
 }
 ```
 
