@@ -26,6 +26,10 @@ classifiers=[
 requires-python = ">=3.8.1"
 dynamic = ["version"]
 
+dependencies = [
+    'django-health-check >= 3,<4'
+]
+
 [project.optional-dependencies]
 test = [
     "bandit[toml]==1.7.5",
@@ -42,6 +46,12 @@ test = [
     "pytest-github-actions-annotate-failures",
     "shellcheck-py==0.9.0.2"
 ]
+
+[options.extras_require]
+notebook = jupyter>=1.0.0, matplotlib
+dev =
+    black==22.1.0
+    flake8==4.0.1
 
 [project.urls]
 Documentation = "https://github.com/netbox_community/netbox_healthcheck_plugin/blob/main/README.md"
