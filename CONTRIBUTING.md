@@ -3,13 +3,27 @@
 Contributions are welcome, and they are greatly appreciated! Every little bit
 helps, and credit will always be given.
 
-You can contribute in many ways:
+We love your input! We want to make contributing to this project as easy and transparent as possible, whether it's:
+
+- Reporting a bug
+- Discussing the current state of the code
+- Submitting a fix
+- Proposing new features
+- Becoming a maintainer
+
+## General Tips for Working on GitHub
+
+* Register for a free [GitHub account](https://github.com/signup) if you haven't already.
+* You can use [GitHub Markdown](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax) for formatting text and adding images.
+* To help mitigate notification spam, please avoid "bumping" issues with no activity. (To vote an issue up or down, use a :thumbsup: or :thumbsdown: reaction.)
+* Please avoid pinging members with `@` unless they've previously expressed interest or involvement with that particular issue.
+* Familiarize yourself with [this list of discussion anti-patterns](https://github.com/bradfitz/issue-tracker-behaviors) and make every effort to avoid them.
 
 ## Types of Contributions
 
 ### Report Bugs
 
-Report bugs at https://github.com/arthanson/netbox_healthcheck_plugin/issues.
+Report bugs at https://github.com/netbox_community/netbox_healthcheck_plugin/issues.
 
 If you are reporting a bug, please include:
 
@@ -35,7 +49,7 @@ articles, and such.
 
 ### Submit Feedback
 
-The best way to send feedback is to file an issue at https://github.com/arthanson/netbox_healthcheck_plugin/issues.
+The best way to send feedback is to file an issue at https://github.com/netbox_community/netbox_healthcheck_plugin/issues.
 
 If you are proposing a feature:
 
@@ -95,7 +109,7 @@ Before you submit a pull request, check that it meets these guidelines:
    your new functionality into a function with a docstring, and add the
    feature to the list in README.md.
 3. The pull request should work for Python 3.6, 3.7, 3.8 and 3.9. Check
-   https://github.com/arthanson/netbox_healthcheck_plugin/actions
+   https://github.com/netbox_community/netbox_healthcheck_plugin/actions
    and make sure that the tests pass for all supported Python versions.
 
 
