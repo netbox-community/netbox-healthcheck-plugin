@@ -23,7 +23,7 @@ We love your input! We want to make contributing to this project as easy and tra
 
 ### Report Bugs
 
-Report bugs at https://github.com/netbox_community/netbox_healthcheck_plugin/issues.
+Report bugs at https://github.com/netbox-community/netbox-healthcheck-plugin/issues.
 
 If you are reporting a bug, please include:
 
@@ -60,7 +60,7 @@ If you are proposing a feature:
 
 ## Get Started!
 
-Ready to contribute? Here's how to set up `netbox-healthcheck-plugin` for local development.
+Ready to contribute? Here's how to set up `netbox_healthcheck_plugin` for local development.
 
 1. Fork the `netbox-healthcheck-plugin` repo on GitHub.
 2. Clone your fork locally
