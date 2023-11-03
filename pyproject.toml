@@ -2,10 +2,10 @@
 # https://www.python.org/dev/peps/pep-0518/
 
 [build-system]
-requires = ["setuptools>=63.2.0", "wheel", "setuptools_scm[toml]>=8.0"]
+requires = ["setuptools>=63.2.0", "wheel"]
 
 [project]
-name =  "netbox_healthcheck_plugin"
+name =  "netbox-healthcheck-plugin"
 authors = [
     {name = "Arthur Hanson", email = "ahanson@netboxlabs.com"},
 ]
@@ -24,7 +24,8 @@ classifiers=[
 ]
 
 requires-python = ">=3.8.1"
-dynamic = ["version"]
+# dynamic = ["version"]
+version = "0.1.0"
 
 dependencies = [
     'django-health-check >= 3,<4'
@@ -47,16 +48,13 @@ test = [
     "shellcheck-py==0.9.0.2"
 ]
 
-[options.extras_require]
-notebook = jupyter>=1.0.0, matplotlib
-dev =
-    black==22.1.0
-    flake8==4.0.1
-
 [project.urls]
-Documentation = "https://github.com/netbox_community/netbox_healthcheck_plugin/blob/main/README.md"
-Source = "https://github.com/netbox_community/netbox_healthcheck_plugin"
-Tracker = "https://github.com/netbox_community/netbox_healthcheck_plugin/issues"
+Documentation = "https://github.com/netbox-community/netbox-healthcheck-plugin/blob/main/README.md"
+Source = "https://github.com/netbox-community/netbox-healthcheck-plugin"
+Tracker = "https://github.com/netbox-community/netbox-healthcheck-plugin/issues"
+
+[tool.setuptools]
+py-modules = ["netbox_healthcheck_plugin",]
 
 [tool.bandit]
 exclude_dirs = ["build","dist","tests","scripts","docs"]
