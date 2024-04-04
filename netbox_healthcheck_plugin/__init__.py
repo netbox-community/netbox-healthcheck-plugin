@@ -5,7 +5,7 @@ __email__ = 'ahanson@netboxlabs.com'
 __version__ = '0.1.0'
 
 
-from extras.plugins import PluginConfig
+from netbox.plugins import PluginConfig
 
 
 class HealthCheckConfig(PluginConfig):
