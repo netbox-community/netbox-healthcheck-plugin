@@ -60,7 +60,7 @@ If you are proposing a feature:
 
 ## Get Started!
 
-Ready to contribute? Here's how to set up `netbox_healthcheck_plugin` for local development.
+Ready to contribute? Here's how to set up `netbox-healthcheck-plugin` for local development.
 
 1. Fork the `netbox-healthcheck-plugin` repo on GitHub.
 2. Clone your fork locally
