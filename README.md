@@ -4,7 +4,7 @@ NetBox plugin for HealthCheck.
 
 NetBox provides health check monitors that can be queried to make sure that the service is running in good condition.  
 
-NetBox exposes metrics at the `/healthcheck` HTTP endpoint, e.g. `https://netbox.local/healthcheck`. It allows monitor conditions via HTTP(S), with responses available in HTML and JSON formats.
+NetBox exposes metrics at the `/healthcheck` HTTP endpoint under the plugin, e.g. `https://netbox.local/plugins/netbox_healthcheck_plugin/healthcheck/`. It allows monitor conditions via HTTP(S), with responses available in HTML and JSON formats.
 
 * Free software: Apache-2.0
 * Documentation: https://netbox-community.github.io/netbox-healthcheck-plugin/
