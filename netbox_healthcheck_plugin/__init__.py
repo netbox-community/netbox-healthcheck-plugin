@@ -2,7 +2,7 @@
 
 __author__ = """Arthur Hanson"""
 __email__ = 'ahanson@netboxlabs.com'
-__version__ = '0.1.4'
+__version__ = '0.1.5b1'
 
 
 from netbox.plugins import PluginConfig
@@ -20,6 +20,6 @@ class HealthCheckConfig(PluginConfig):
         'health_check.contrib.migrations',
         'health_check.contrib.redis',
     ]
-
+    min_version = "v4.0-beta1"
 
 config = HealthCheckConfig
