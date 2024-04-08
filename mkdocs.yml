@@ -1,7 +1,7 @@
 site_name: NetBox HealthCheck Plugin
-site_url: https://arthanson.github.io/netbox_healthcheck_plugin
-repo_url: https://github.com/arthanson/netbox_healthcheck_plugin
-repo_name: arthanson/netbox_healthcheck_plugin
+site_url: https://netbox-community.github.io/netbox-healthcheck-plugin
+repo_url: https://github.com/netbox-community/netbox-healthcheck-plugin
+repo_name: netbox-community/netbox-healthcheck-plugin
 #strict: true
 nav:
   - Home: index.md
@@ -20,9 +20,10 @@ theme:
     - navigation.instant
     - navigation.tabs.sticky
 markdown_extensions:
+  - attr_list
   - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji
-      emoji_generator: !!python/name:materialx.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.critic
   - pymdownx.caret
   - pymdownx.mark
@@ -48,7 +49,7 @@ plugins:
       lang: en
   - mkdocstrings:
       watch:
-        - netbox_healthcheck_plugin
+        - netbox-healthcheck-plugin
 extra:
   social:
     - icon: fontawesome/brands/twitter
@@ -60,7 +61,7 @@ extra:
       link: https://github.com/netbox-community/cookiecutter-netbox-plugin
       name: Facebook
     - icon: fontawesome/brands/github
-      link: https://github.com/arthanson/netbox_healthcheck_plugin
+      link: https://github.com/netbox-community/netbox_healthcheck_plugin
       name: Github
     - icon: material/email
       link: "mailto:ahanson@netboxlabs.com"
