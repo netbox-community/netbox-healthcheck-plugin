@@ -21,6 +21,7 @@ The features the plugin provides should be listed here.
 |   3.4 - 3.7    |      0.1.0     |
 |   3.4 - 3.7    |      0.1.2     |
 |   3.4 - 3.7    |      0.1.3     |
+|   4.0.         |      0.2.0     |
 
 ## Installing
 
