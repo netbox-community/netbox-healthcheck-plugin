@@ -12,7 +12,25 @@ NetBox exposes metrics at the `/healthcheck` HTTP endpoint under the plugin, e.g
 
 ## Features
 
-The features the plugin provides should be listed here.
+This plugin provides the following health checks:
+
+- **Database** - Verifies PostgreSQL database connectivity
+- **Migrations** - Checks for pending database migrations
+- **Redis Cache** - Verifies connectivity to the caching Redis instance
+- **Redis Tasks** - Verifies connectivity to the tasks/RQ Redis instance
+
+### Redis Health Checks
+
+NOTE: Previous versions of this plugin used a `REDIS_URL` setting for connectivity, but as of `0.3.0` it reads the Redis configuration directly from NetBox's settings.
+
+NetBox uses two Redis instances:
+- `caching` - Used for Django cache operations
+- `tasks` - Used for the RQ task queue (background workers)
+
+Both are checked automatically. The configuration supports:
+- `HOST`, `PORT`, `DATABASE` - Connection parameters
+- `USERNAME`, `PASSWORD` - Authentication (optional)
+- `SSL`, `INSECURE_SKIP_TLS_VERIFY`, `CA_CERT_PATH` - TLS settings (optional)
 
 ## Compatibility
 
@@ -21,7 +39,7 @@ The features the plugin provides should be listed here.
 |   3.4 - 3.7    |      0.1.0     |
 |   3.4 - 3.7    |      0.1.2     |
 |   3.4 - 3.7    |      0.1.3     |
-|   4.0.         |      0.2.0     |
+|   4.0+         |      0.2.0     |
 
 ## Installing
 

@@ -2,7 +2,7 @@
 
 __author__ = """Arthur Hanson"""
 __email__ = 'ahanson@netboxlabs.com'
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 
 
 from netbox.plugins import PluginConfig
@@ -18,7 +18,9 @@ class HealthCheckConfig(PluginConfig):
         'health_check',
         'health_check.db',
         'health_check.contrib.migrations',
-        'health_check.contrib.redis',
+        # Use our custom Redis backend that reads from NetBox's REDIS config
+        # instead of health_check.contrib.redis which expects REDIS_URL
+        'netbox_healthcheck_plugin.backends',
     ]
     min_version = "v4.0-beta1"
 

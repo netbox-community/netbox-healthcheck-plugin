@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name =  "netbox-healthcheck-plugin"
-version = "0.2.0"
+version = "0.3.0"
 authors = [
     {name = "Arthur Hanson", email = "ahanson@netboxlabs.com"},
 ]
@@ -27,7 +27,8 @@ classifiers=[
 requires-python = ">=3.10.0"
 
 dependencies = [
-    'django-health-check >= 3,<4'
+    'django-health-check >= 3,<4',
+    'redis >= 4.0',
 ]
 
 [project.optional-dependencies]
