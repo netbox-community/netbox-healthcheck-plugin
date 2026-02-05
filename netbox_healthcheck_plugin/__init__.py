@@ -16,10 +16,6 @@ class HealthCheckConfig(PluginConfig):
     base_url = 'netbox_healthcheck_plugin'
     django_apps = [
         'health_check',
-        'health_check.db',
-        'health_check.contrib.migrations',
-        # Use our custom Redis backend that reads from NetBox's REDIS config
-        # instead of health_check.contrib.redis which expects REDIS_URL
         'netbox_healthcheck_plugin.backends',
     ]
     min_version = "v4.0-beta1"

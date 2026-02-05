@@ -7,7 +7,7 @@ DATABASE, PASSWORD, etc. fields rather than a connection URL.
 """
 
 from django.conf import settings
-from health_check.backends import BaseHealthCheckBackend
+from health_check.backends import HealthCheck
 from health_check.exceptions import ServiceUnavailable
 
 
@@ -66,7 +66,7 @@ def build_redis_url_options(redis_config: dict) -> dict:
     return options
 
 
-class BaseNetBoxRedisHealthCheck(BaseHealthCheckBackend):
+class BaseNetBoxRedisHealthCheck(HealthCheck):
     """
     Base health check backend for Redis that reads from NetBox's REDIS configuration.
 
@@ -92,18 +92,17 @@ class BaseNetBoxRedisHealthCheck(BaseHealthCheckBackend):
         try:
             import redis
         except ImportError:
-            self.add_error(ServiceUnavailable("redis library not installed"))
-            return
+            raise ServiceUnavailable("redis library not installed")
 
         try:
             connection = redis.Redis.from_url(self._redis_url, **self._redis_url_options)
             connection.ping()
         except redis.ConnectionError as e:
-            self.add_error(ServiceUnavailable(f"Redis connection error: {e}"))
+            raise ServiceUnavailable(f"Redis connection error: {e}")
         except Exception as e:
-            self.add_error(ServiceUnavailable(f"Redis error: {e}"))
+            raise ServiceUnavailable(f"Redis error: {e}")
 
-    def identifier(self):
+    def __repr__(self):
         """Return a unique identifier for this health check."""
         return f"redis:{self.redis_config_key}"
 

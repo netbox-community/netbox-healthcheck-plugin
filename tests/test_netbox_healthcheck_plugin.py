@@ -130,14 +130,14 @@ class TestNetBoxRedisCacheHealthCheck:
         assert backend._redis_url == 'redis://cache-redis-host:6379/1'
 
     @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_identifier(self, mock_settings):
-        """Test that the identifier is redis:caching."""
+    def test_repr(self, mock_settings):
+        """Test that repr is redis:caching."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
 
         mock_settings.REDIS = {'caching': {'HOST': 'localhost'}}
 
         backend = NetBoxRedisCacheHealthCheck()
-        assert backend.identifier() == 'redis:caching'
+        assert repr(backend) == 'redis:caching'
 
     @patch('netbox_healthcheck_plugin.backends.redis.settings')
     @patch('netbox_healthcheck_plugin.backends.redis.redis')
@@ -160,6 +160,7 @@ class TestNetBoxRedisCacheHealthCheck:
     def test_check_status_connection_error(self, mock_settings):
         """Test health check with connection error."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
+        from health_check.exceptions import ServiceUnavailable
         import redis
 
         mock_settings.REDIS = {'caching': {'HOST': 'nonexistent-host'}}
@@ -168,9 +169,8 @@ class TestNetBoxRedisCacheHealthCheck:
 
         with patch.object(redis.Redis, 'from_url') as mock_from_url:
             mock_from_url.side_effect = redis.ConnectionError("Connection refused")
-            backend.check_status()
-
-        assert len(backend.errors) == 1
+            with pytest.raises(ServiceUnavailable):
+                backend.check_status()
 
 
 class TestNetBoxRedisTasksHealthCheck:
@@ -198,14 +198,14 @@ class TestNetBoxRedisTasksHealthCheck:
         assert backend._redis_url == 'redis://tasks-redis-host:6380/2'
 
     @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_identifier(self, mock_settings):
-        """Test that the identifier is redis:tasks."""
+    def test_repr(self, mock_settings):
+        """Test that repr is redis:tasks."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisTasksHealthCheck
 
         mock_settings.REDIS = {'tasks': {'HOST': 'localhost'}}
 
         backend = NetBoxRedisTasksHealthCheck()
-        assert backend.identifier() == 'redis:tasks'
+        assert repr(backend) == 'redis:tasks'
 
     @patch('netbox_healthcheck_plugin.backends.redis.settings')
     @patch('netbox_healthcheck_plugin.backends.redis.redis')

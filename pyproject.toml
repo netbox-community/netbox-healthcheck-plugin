@@ -27,7 +27,7 @@ classifiers=[
 requires-python = ">=3.10.0"
 
 dependencies = [
-    'django-health-check >= 3,<4',
+    'django-health-check >= 3.23,<4',
     'redis >= 4.0',
 ]
 
