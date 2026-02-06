@@ -22,7 +22,7 @@ class HealthCheckConfig(PluginConfig):
         'netbox_healthcheck_plugin.backends',
     ]
     min_version = '4.5.0'
-    max_version = '4.99.99'
+    max_version = '4.5.x'
     default_settings = {
         'checks': [
             'health_check.Database',

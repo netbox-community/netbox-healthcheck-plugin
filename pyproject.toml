@@ -74,7 +74,7 @@ pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.setuptools]
-packages = ["netbox_healthcheck_plugin", "netbox_healthcheck_plugin.backends"]
+packages = ["netbox_healthcheck_plugin", "netbox_healthcheck_plugin.backends", "tests"]
 
 [tool.setuptools.package-data]
 netbox_healthcheck_plugin = ["templates/**"]
