@@ -9,7 +9,10 @@ build-backend = "setuptools.build_meta"
 name =  "netbox-healthcheck-plugin"
 version = "0.3.0"
 authors = [
-    {name = "Arthur Hanson", email = "ahanson@netboxlabs.com"},
+    { name = "NetBox Labs", email = "support@netboxlabs.com" }
+]
+maintainers = [
+    { name = "NetBox Labs", email = "support@netboxlabs.com" }
 ]
 description = "NetBox plugin for HealthCheck."
 readme = "README.md"

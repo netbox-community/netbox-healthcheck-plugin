@@ -1,7 +1,7 @@
 """Top-level package for NetBox HealthCheck Plugin."""
 
-__author__ = """Arthur Hanson"""
-__email__ = 'ahanson@netboxlabs.com'
+__author__ = 'NetBox Labs'
+__email__ = 'support@netboxlabs.com'
 __version__ = '0.3.0'
 
 
@@ -13,6 +13,8 @@ class HealthCheckConfig(PluginConfig):
     verbose_name = 'NetBox HealthCheck Plugin'
     description = 'NetBox plugin for HealthCheck.'
     version = '0.3.0'
+    author = 'NetBox Labs'
+    author_email = 'support@netboxlabs.com'
     base_url = 'netbox_healthcheck_plugin'
     django_apps = [
         'health_check',

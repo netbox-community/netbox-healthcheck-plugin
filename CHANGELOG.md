@@ -20,6 +20,18 @@
 
 ### Bug Fixes
 * Remove unused imports from views.py and navigation.py
+* Add `author` and `author_email` to PluginConfig (NetBox plugin best practice)
+
+### Testing & CI/CD
+* Add comprehensive GitHub Actions workflow for linting and testing
+* Test matrix includes Python 3.12, 3.13, and 3.14
+* Automated testing against NetBox 4.5.2 with Redis and PostgreSQL services
+* Ruff linting and formatting checks in CI
+
+### Documentation
+* Add COMPATIBILITY.md with detailed version compatibility matrix
+* Document breaking changes across versions
+* Include Python version requirements in compatibility table
 
 ### Notes
 * Migrations health check (`health_check.contrib.migrations`) was removed in django-health-check 3.23+ and is no longer available.
