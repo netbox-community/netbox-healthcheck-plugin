@@ -17,6 +17,20 @@ class TestHealthCheckPlugin(TestCase):
         self.assertEqual(HealthCheckConfig.version, '0.3.0')
         self.assertEqual(HealthCheckConfig.min_version, '4.5.0')
 
+    def test_plugin_default_settings(self):
+        """Test that default settings are properly defined."""
+        from netbox_healthcheck_plugin import HealthCheckConfig
+
+        self.assertIn('checks', HealthCheckConfig.default_settings)
+        default_checks = HealthCheckConfig.default_settings['checks']
+        self.assertIsInstance(default_checks, list)
+        self.assertGreater(len(default_checks), 0)
+        # Verify default checks are present
+        self.assertIn('health_check.Database', default_checks)
+        self.assertIn('health_check.cache.backends.CacheBackend', default_checks)
+        self.assertIn('netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck', default_checks)
+        self.assertIn('netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck', default_checks)
+
     def test_healthcheck_endpoint_exists(self):
         """Test that the healthcheck URL is accessible."""
         client = Client()
@@ -25,6 +39,60 @@ class TestHealthCheckPlugin(TestCase):
 
         # Should return 200 or redirect (depending on NetBox setup)
         self.assertIn(response.status_code, [200, 302])
+
+
+class TestHealthCheckConfiguration(TestCase):
+    """Test health check configuration."""
+
+    @patch('netbox_healthcheck_plugin.views.get_plugin_config')
+    def test_default_checks_used(self, mock_get_config):
+        """Test that default checks are used when configured."""
+        from netbox_healthcheck_plugin.views import HealthCheckListView
+
+        default_checks = [
+            'health_check.Database',
+            'health_check.cache.backends.CacheBackend',
+            'netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck',
+            'netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck',
+        ]
+        mock_get_config.return_value = default_checks
+
+        view = HealthCheckListView()
+        checks = view.checks
+
+        self.assertEqual(checks, default_checks)
+        mock_get_config.assert_called_once_with('netbox_healthcheck_plugin', 'checks')
+
+    @patch('netbox_healthcheck_plugin.views.get_plugin_config')
+    def test_custom_checks_from_config(self, mock_get_config):
+        """Test that custom checks from config are used."""
+        from netbox_healthcheck_plugin.views import HealthCheckListView
+
+        custom_checks = [
+            'health_check.Database',
+            'netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck',
+        ]
+        mock_get_config.return_value = custom_checks
+
+        view = HealthCheckListView()
+        checks = view.checks
+
+        self.assertEqual(checks, custom_checks)
+        self.assertEqual(len(checks), 2)
+        mock_get_config.assert_called_once_with('netbox_healthcheck_plugin', 'checks')
+
+    @patch('netbox_healthcheck_plugin.views.get_plugin_config')
+    def test_empty_checks_list(self, mock_get_config):
+        """Test behavior with empty checks list."""
+        from netbox_healthcheck_plugin.views import HealthCheckListView
+
+        mock_get_config.return_value = []
+
+        view = HealthCheckListView()
+        checks = view.checks
+
+        self.assertEqual(checks, [])
+        mock_get_config.assert_called_once_with('netbox_healthcheck_plugin', 'checks')
 
 
 class TestBuildRedisUrl(TestCase):

@@ -85,6 +85,66 @@ PLUGINS_CONFIG = {
 }
 ```
 
+## Configuration
+
+The plugin can be configured in NetBox's `configuration.py`:
+
+```python
+PLUGINS_CONFIG = {
+    "netbox_healthcheck_plugin": {
+        # Optional: Customize which health checks to run
+        # If not specified, all checks below are enabled by default
+        "checks": [
+            "health_check.Database",
+            "health_check.cache.backends.CacheBackend",
+            "netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck",
+            "netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck",
+        ]
+    },
+}
+```
+
+### Available Health Checks
+
+**Built-in Checks:**
+- `health_check.Database` - PostgreSQL database connectivity
+- `health_check.cache.backends.CacheBackend` - Django cache operations (Redis-backed)
+
+**Plugin-provided Checks:**
+- `netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck` - Redis caching instance
+- `netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck` - Redis tasks/RQ instance
+
+### Configuration Examples
+
+**Minimal Configuration (Database + Redis only):**
+
+```python
+PLUGINS_CONFIG = {
+    "netbox_healthcheck_plugin": {
+        "checks": [
+            "health_check.Database",
+            "netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck",
+        ]
+    },
+}
+```
+
+**Add Custom Health Check:**
+
+```python
+PLUGINS_CONFIG = {
+    "netbox_healthcheck_plugin": {
+        "checks": [
+            "health_check.Database",
+            "health_check.cache.backends.CacheBackend",
+            "netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck",
+            "netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck",
+            "my_custom_plugin.health.CustomHealthCheck",  # Your custom check
+        ]
+    },
+}
+```
+
 ## Development
 
 This plugin uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting.

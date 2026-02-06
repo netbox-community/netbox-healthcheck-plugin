@@ -14,6 +14,10 @@
 * Replace `health_check.contrib.redis` with custom NetBox Redis health check backends
 * Add separate health checks for both Redis instances: `caching` and `tasks`
 * Add Django cache framework health check (tests cache set/get operations)
+* **Make health checks configurable via `PLUGINS_CONFIG['checks']` parameter**
+* Add `default_settings` to PluginConfig with sensible defaults
+* Support for customizing which health checks run
+* Support for adding custom health checks from other plugins
 * Add comprehensive ruff configuration for linting and formatting
 * Add extensive test suite with Redis backend tests and plugin structure verification
 * Update documentation

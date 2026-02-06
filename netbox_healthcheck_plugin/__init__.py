@@ -23,6 +23,14 @@ class HealthCheckConfig(PluginConfig):
     ]
     min_version = '4.5.0'
     max_version = '4.99.99'
+    default_settings = {
+        'checks': [
+            'health_check.Database',
+            'health_check.cache.backends.CacheBackend',
+            'netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck',
+            'netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck',
+        ]
+    }
 
 
 config = HealthCheckConfig
