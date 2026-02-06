@@ -80,28 +80,25 @@ jobs:
 
       - name: Install netbox-healthcheck-plugin
         working-directory: netbox-healthcheck-plugin
-        run: pip install -e ".[test]"
+        run: pip install -e .
 
       - name: Install NetBox
         working-directory: netbox
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Configure NetBox
-        working-directory: netbox/netbox
+        working-directory: netbox/netbox/netbox
         run: |
-          cp netbox/configuration_testing.py netbox/configuration.py
-          echo "PLUGINS = ['netbox_healthcheck_plugin']" >> netbox/configuration.py
-          echo "PLUGINS_CONFIG = {'netbox_healthcheck_plugin': {}}" >> netbox/configuration.py
+          ln -s ../../../netbox-healthcheck-plugin/testing/configuration.py configuration.py
 
       - name: Run NetBox migrations
         working-directory: netbox/netbox
         run: python manage.py migrate --no-input
 
-      - name: Run plugin tests
-        working-directory: netbox-healthcheck-plugin
-        run: pytest -v
+      - name: Collect static files
+        working-directory: netbox/netbox
+        run: python manage.py collectstatic --no-input
 
-      - name: Run NetBox plugin integration tests
+      - name: Run tests
         working-directory: netbox/netbox
         run: python manage.py test netbox_healthcheck_plugin.tests --keepdb
