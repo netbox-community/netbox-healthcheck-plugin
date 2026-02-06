@@ -101,4 +101,4 @@ jobs:
 
       - name: Run tests
         working-directory: netbox/netbox
-        run: python manage.py test tests --keepdb
+        run: python manage.py test netbox_healthcheck_plugin.tests --keepdb

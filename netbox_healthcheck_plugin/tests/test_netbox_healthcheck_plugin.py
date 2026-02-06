@@ -230,19 +230,19 @@ class TestNetBoxRedisCacheHealthCheck(TestCase):
         self.assertEqual(repr(backend), 'redis:caching')
 
     @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    @patch('netbox_healthcheck_plugin.backends.redis.redis')
-    def test_check_status_success(self, mock_redis_module, mock_settings):
+    @patch('redis.Redis.from_url')
+    def test_check_status_success(self, mock_from_url, mock_settings):
         """Test successful health check."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
 
         mock_settings.REDIS = {'caching': {'HOST': 'localhost'}}
         mock_connection = MagicMock()
-        mock_redis_module.Redis.from_url.return_value = mock_connection
+        mock_from_url.return_value = mock_connection
 
         backend = NetBoxRedisCacheHealthCheck()
         backend.check_status()
 
-        mock_redis_module.Redis.from_url.assert_called_once()
+        mock_from_url.assert_called_once()
         mock_connection.ping.assert_called_once()
         self.assertEqual(len(backend.errors), 0)
 
@@ -299,18 +299,18 @@ class TestNetBoxRedisTasksHealthCheck(TestCase):
         self.assertEqual(repr(backend), 'redis:tasks')
 
     @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    @patch('netbox_healthcheck_plugin.backends.redis.redis')
-    def test_check_status_success(self, mock_redis_module, mock_settings):
+    @patch('redis.Redis.from_url')
+    def test_check_status_success(self, mock_from_url, mock_settings):
         """Test successful health check."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisTasksHealthCheck
 
         mock_settings.REDIS = {'tasks': {'HOST': 'localhost'}}
         mock_connection = MagicMock()
-        mock_redis_module.Redis.from_url.return_value = mock_connection
+        mock_from_url.return_value = mock_connection
 
         backend = NetBoxRedisTasksHealthCheck()
         backend.check_status()
 
-        mock_redis_module.Redis.from_url.assert_called_once()
+        mock_from_url.assert_called_once()
         mock_connection.ping.assert_called_once()
         self.assertEqual(len(backend.errors), 0)
