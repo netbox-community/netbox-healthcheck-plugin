@@ -12,16 +12,26 @@ NetBox exposes metrics at the `/healthcheck` HTTP endpoint under the plugin, e.g
 
 ## Features
 
-The features the plugin provides should be listed here.
+- Database connectivity monitoring
+- Redis connectivity monitoring
+- Django migrations status checking
+- HTTP/JSON response formats for external monitoring
+- NetBox-integrated UI with styled health check display
+- Extensible through django-health-check's plugin system
 
 ## Compatibility
 
-| NetBox Version | Plugin Version |
-|----------------|----------------|
-|   3.4 - 3.7    |      0.1.0     |
-|   3.4 - 3.7    |      0.1.2     |
-|   3.4 - 3.7    |      0.1.3     |
-|   4.0.         |      0.2.0     |
+| NetBox Version | Plugin Version | Python Version    |
+|----------------|----------------|-------------------|
+|   3.4 - 3.7    |      0.1.x     | 3.10, 3.11, 3.12 |
+|   4.0 - 4.4    |      0.2.0     | 3.10, 3.11, 3.12 |
+|   4.5+         |      0.3.0     | 3.12, 3.13, 3.14 |
+
+**Current Version:** 0.3.0
+**Supported Dependencies:**
+- django-health-check: >= 3.23.0, < 4
+- NetBox: >= 4.5.0
+- Python: >= 3.12.0
 
 ## Installing
 
@@ -51,6 +61,25 @@ PLUGINS = [
 PLUGINS_CONFIG = {
     "netbox_healthcheck_plugin": {},
 }
+```
+
+## Development
+
+This plugin uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting.
+
+```bash
+# Install development dependencies
+pip install -e ".[test]"
+
+# Run linting and formatting
+ruff check .
+ruff format .
+
+# Run tests
+pytest
+
+# Install pre-commit hooks
+pre-commit install
 ```
 
 ## Setting up Monitoring

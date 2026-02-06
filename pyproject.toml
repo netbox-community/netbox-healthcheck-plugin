@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name =  "netbox-healthcheck-plugin"
-version = "0.2.0"
+version = "0.3.0"
 authors = [
     {name = "Arthur Hanson", email = "ahanson@netboxlabs.com"},
 ]
@@ -15,29 +15,28 @@ description = "NetBox plugin for HealthCheck."
 readme = "README.md"
 
 classifiers=[
-    'Development Status :: 3 - Alpha',
+    'Development Status :: 4 - Beta',
     'Intended Audience :: Developers',
     'Natural Language :: English',
     "Programming Language :: Python :: 3 :: Only",
-    'Programming Language :: Python :: 3.10',
-    'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
 ]
 
-requires-python = ">=3.10.0"
+requires-python = ">=3.12.0"
 
 dependencies = [
-    'django-health-check >= 3,<4'
+    'django-health-check>=3.23.0,<4'
 ]
 
 [project.optional-dependencies]
 test = [
-    "black==24.3.0",
-    "check-manifest==0.49",
-    "flake8",
-    "flake8-pyproject",
-    "pre-commit==3.7.0",
-    "pytest==8.1.1",
+    "ruff>=0.15.0",
+    "check-manifest>=0.49",
+    "pre-commit>=3.9.0",
+    "pytest>=8.3.0",
+    "pytest-django>=4.9.0",
 ]
 
 [project.urls]
@@ -45,9 +44,26 @@ Documentation = "https://github.com/netbox-community/netbox-healthcheck-plugin/b
 Source = "https://github.com/netbox-community/netbox-healthcheck-plugin"
 Tracker = "https://github.com/netbox-community/netbox-healthcheck-plugin/issues"
 
-[tool.black]
+[tool.ruff]
 line-length = 120
-target_version = ['py310', 'py311', 'py312']
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "UP", "C4", "B", "SIM", "TCH"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["netbox_healthcheck_plugin"]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+pythonpath = ["."]
+testpaths = ["tests"]
 
 [tool.setuptools.package-data]
 netbox_healthcheck_plugin = ["templates/**"]
