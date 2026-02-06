@@ -75,13 +75,15 @@ Ready to contribute? Here's how to set up `netbox-healthcheck-plugin` for local 
     $ source ~/.venv/netbox/bin/activate
     ```
 
-4. Add the plugin to NetBox virtual environment in Develop mode (see [Plugins Development](https://docs.netbox.dev/en/stable/plugins/development/)):
+4. Install the plugin in development mode:
 
-    To ease development, it is recommended to go ahead and install the plugin at this point using setuptools' develop mode. This will create symbolic links within your Python environment to the plugin development directory. Call setup.py from the plugin's root directory with the develop argument (instead of install):
+    Install the plugin in editable mode with development dependencies:
 
     ```
-    $ python setup.py develop
+    $ pip install -e ".[test,docs]"
     ```
+
+    This creates symbolic links within your Python environment to the plugin development directory.
 
 5. Create a branch for local development:
 
@@ -109,7 +111,7 @@ Before you submit a pull request, check that it meets these guidelines:
 2. If the pull request adds functionality, the docs should be updated. Put
    your new functionality into a function with a docstring, and add the
    feature to the list in README.md.
-3. The pull request should work for Python 3.10, 3.11 and 3.12. Check
+3. The pull request should work for Python 3.12, 3.13 and 3.14. Check
    https://github.com/netbox-community/netbox-healthcheck-plugin/actions
    and make sure that the tests pass for all supported Python versions.
 

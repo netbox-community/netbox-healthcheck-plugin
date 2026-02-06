@@ -3,39 +3,19 @@
 ## 0.3.0 (2026-02-06)
 
 ### Breaking Changes
-* Minimum Python version increased to 3.12 (NetBox 4.5+ requirement)
 * Minimum NetBox version increased to 4.5.0
 * Require django-health-check >= 3.23
 * Development tooling migrated from black + flake8 to ruff
 
 ### Features
-* Add support for Python 3.12, 3.13, and 3.14
 * Add support for NetBox 4.5+
 * Replace `health_check.contrib.redis` with custom NetBox Redis health check backends
 * Add separate health checks for both Redis instances: `caching` and `tasks`
 * Add Django cache framework health check (tests cache set/get operations)
 * **Make health checks configurable via `PLUGINS_CONFIG['checks']` parameter**
-* Add `default_settings` to PluginConfig with sensible defaults
-* Support for customizing which health checks run
-* Support for adding custom health checks from other plugins
 * Add comprehensive ruff configuration for linting and formatting
 * Add extensive test suite with Redis backend tests and plugin structure verification
 * Update documentation
-
-### Bug Fixes
-* Remove unused imports from views.py and navigation.py
-* Add `author` and `author_email` to PluginConfig (NetBox plugin best practice)
-
-### Testing & CI/CD
-* Add comprehensive GitHub Actions workflow for linting and testing
-* Test matrix includes Python 3.12, 3.13, and 3.14
-* Automated testing against NetBox 4.5.2 with Redis and PostgreSQL services
-* Ruff linting and formatting checks in CI
-
-### Documentation
-* Add COMPATIBILITY.md with detailed version compatibility matrix
-* Document breaking changes across versions
-* Include Python version requirements in compatibility table
 
 ### Notes
 * Migrations health check (`health_check.contrib.migrations`) was removed in django-health-check 3.23+ and is no longer available.
