@@ -2,7 +2,7 @@
 
 NetBox plugin for HealthCheck.
 
-NetBox provides health check monitors that can be queried to make sure that the service is running in good condition.  
+NetBox provides health check monitors that can be queried to make sure that the service is running in good condition.
 
 NetBox exposes metrics at the `/healthcheck` HTTP endpoint under the plugin, e.g. `https://netbox.local/plugins/netbox_healthcheck_plugin/healthcheck/`. It allows monitor conditions via HTTP(S), with responses available in HTML and JSON formats.
 
@@ -12,12 +12,30 @@ NetBox exposes metrics at the `/healthcheck` HTTP endpoint under the plugin, e.g
 
 ## Features
 
-- Database connectivity monitoring
-- Redis connectivity monitoring
-- Django migrations status checking
+This plugin provides the following health checks:
+
+- **Database** - Verifies PostgreSQL database connectivity
+- **Migrations** - Checks for pending database migrations
+- **Redis Cache** - Verifies connectivity to the caching Redis instance
+- **Redis Tasks** - Verifies connectivity to the tasks/RQ Redis instance
+
+Additional capabilities:
 - HTTP/JSON response formats for external monitoring
 - NetBox-integrated UI with styled health check display
 - Extensible through django-health-check's plugin system
+
+### Redis Health Checks
+
+**NOTE:** Previous versions of this plugin used a `REDIS_URL` setting for connectivity, but as of `0.3.0` it reads the Redis configuration directly from NetBox's settings.
+
+NetBox uses two Redis instances:
+- `caching` - Used for Django cache operations
+- `tasks` - Used for the RQ task queue (background workers)
+
+Both are checked automatically. The configuration supports:
+- `HOST`, `PORT`, `DATABASE` - Connection parameters
+- `USERNAME`, `PASSWORD` - Authentication (optional)
+- `SSL`, `INSECURE_SKIP_TLS_VERIFY`, `CA_CERT_PATH` - TLS settings (optional)
 
 ## Compatibility
 
@@ -28,10 +46,12 @@ NetBox exposes metrics at the `/healthcheck` HTTP endpoint under the plugin, e.g
 |   4.5+         |      0.3.0     | 3.12, 3.13, 3.14 |
 
 **Current Version:** 0.3.0
+
 **Supported Dependencies:**
-- django-health-check: >= 3.23.0, < 4
 - NetBox: >= 4.5.0
 - Python: >= 3.12.0
+- django-health-check: >= 3.23.0, < 4
+- redis: >= 4.0
 
 ## Installing
 
