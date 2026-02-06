@@ -16,6 +16,7 @@ class HealthCheckConfig(PluginConfig):
     base_url = 'netbox_healthcheck_plugin'
     django_apps = [
         'health_check',
+        'health_check.cache',
         'netbox_healthcheck_plugin.backends',
     ]
     min_version = '4.5.0'

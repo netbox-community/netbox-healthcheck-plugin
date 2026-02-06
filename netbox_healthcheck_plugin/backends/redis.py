@@ -20,6 +20,10 @@ def build_redis_url_from_config(redis_config: dict) -> str:
 
     Returns:
         Redis URL string (e.g., "redis://host:6379/0" or "rediss://user:pass@host:6379/0")
+
+    Note:
+        If HOST, PORT, or DATABASE are not specified, defaults to localhost:6379/0.
+        This is intentional to match django-redis's default behavior.
     """
     host = redis_config.get('HOST', 'localhost')
     port = redis_config.get('PORT', 6379)
@@ -82,6 +86,17 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
         redis_settings = getattr(settings, 'REDIS', {})
         redis_config = redis_settings.get(self.redis_config_key, {})
 
+        # Warn if using default configuration (empty config dict)
+        if not redis_config:
+            import warnings
+
+            warnings.warn(
+                f"No Redis configuration found for '{self.redis_config_key}' in settings.REDIS. "
+                f'Using defaults: localhost:6379/0. This may indicate a configuration issue.',
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
         self._redis_url = build_redis_url_from_config(redis_config)
         self._redis_url_options = build_redis_url_options(redis_config)
 
@@ -92,13 +107,22 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
         except ImportError as e:
             raise ServiceUnavailable('redis library not installed') from e
 
+        # Mask password in URL for error messages
+        display_url = self._redis_url
+        if '@' in display_url and ':' in display_url.split('@')[0]:
+            # Replace password with asterisks
+            parts = display_url.split('@')
+            auth_parts = parts[0].rsplit(':', 1)
+            if len(auth_parts) == 2:
+                display_url = f'{auth_parts[0]}:***@{parts[1]}'
+
         try:
             connection = redis.Redis.from_url(self._redis_url, **self._redis_url_options)
             connection.ping()
         except redis.ConnectionError as e:
-            raise ServiceUnavailable(f'Redis connection error: {e}') from e
+            raise ServiceUnavailable(f'Redis connection error to {display_url}: {e}') from e
         except Exception as e:
-            raise ServiceUnavailable(f'Redis error: {e}') from e
+            raise ServiceUnavailable(f'Redis error connecting to {display_url}: {e}') from e
 
     def __repr__(self):
         """Return a unique identifier for this health check."""

@@ -15,9 +15,11 @@ NetBox exposes metrics at the `/healthcheck` HTTP endpoint under the plugin, e.g
 This plugin provides the following health checks:
 
 - **Database** - Verifies PostgreSQL database connectivity
-- **Migrations** - Checks for pending database migrations
+- **Cache** - Tests Django cache framework (set/get operations)
 - **Redis Cache** - Verifies connectivity to the caching Redis instance
 - **Redis Tasks** - Verifies connectivity to the tasks/RQ Redis instance
+
+**Note:** Migrations health check was removed in django-health-check 3.23+ and is no longer available.
 
 Additional capabilities:
 - HTTP/JSON response formats for external monitoring
