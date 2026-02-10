@@ -1,67 +1,106 @@
 # NetBox HealthCheck Plugin
 
-NetBox plugin for HealthCheck.
+A [NetBox](https://github.com/netbox-community/netbox) plugin that provides comprehensive health monitoring for your NetBox installation.
 
-NetBox provides health check monitors that can be queried to make sure that the service is running in good condition.  
-
-NetBox exposes metrics at the `/healthcheck` HTTP endpoint under the plugin, e.g. `https://netbox.local/plugins/netbox_healthcheck_plugin/healthcheck/`. It allows monitor conditions via HTTP(S), with responses available in HTML and JSON formats.
-
-* Free software: Apache-2.0
-* Documentation: https://netbox-community.github.io/netbox-healthcheck-plugin/
-
+[![Version](https://img.shields.io/pypi/v/netbox-healthcheck-plugin)](https://pypi.org/project/netbox-healthcheck-plugin/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/netbox-healthcheck-plugin)](https://pypi.org/project/netbox-healthcheck-plugin/)
+[![License](https://img.shields.io/github/license/netbox-community/netbox-healthcheck-plugin)](https://github.com/netbox-community/netbox-healthcheck-plugin/blob/main/LICENSE)
 
 ## Features
 
-The features the plugin provides should be listed here.
+This plugin integrates [django-health-check](https://github.com/revsys/django-health-check) with NetBox to provide health monitoring of critical services:
 
-## Compatibility
+- **Database** - PostgreSQL connectivity and operations
+- **Cache** - Django cache framework (Redis-backed)
+- **Redis Instances** - Both caching and task queue Redis connections
+- **Extensible** - Add custom health checks via configuration
 
-| NetBox Version | Plugin Version |
-|----------------|----------------|
-|   3.4 - 3.7    |      0.1.0     |
-|   3.4 - 3.7    |      0.1.2     |
-|   3.4 - 3.7    |      0.1.3     |
-|   4.0.         |      0.2.0     |
+Health status is exposed at `/plugins/netbox_healthcheck_plugin/healthcheck/` with both HTML and JSON response formats for integration with monitoring systems.
 
-## Installing
-
-For adding to a NetBox Docker setup see
-[the general instructions for using netbox-docker with plugins](https://github.com/netbox-community/netbox-docker/wiki/Using-Netbox-Plugins).
-
-While this is still in development and not yet on pypi you can install with pip:
+## Installation
 
 ```bash
-pip install git+https://github.com/netbox-community/netbox-healthcheck-plugin
+pip install netbox-healthcheck-plugin
 ```
 
-or by adding to your `local_requirements.txt` or `plugin_requirements.txt` (netbox-docker):
-
-```bash
-git+https://github.com/netbox-community/netbox-healthcheck-plugin
-```
-
-Enable the plugin in `/opt/netbox/netbox/netbox/configuration.py`,
- or if you use netbox-docker, your `/configuration/plugins.py` file :
+Add to your NetBox `configuration.py`:
 
 ```python
-PLUGINS = [
-    'netbox_healthcheck_plugin'
-]
+PLUGINS = ['netbox_healthcheck_plugin']
 
 PLUGINS_CONFIG = {
-    "netbox_healthcheck_plugin": {},
+    "netbox_healthcheck_plugin": {}
 }
 ```
 
-## Setting up Monitoring
+Restart NetBox and visit: `https://your-netbox/plugins/netbox_healthcheck_plugin/healthcheck/`
 
-NetBox makes use of the [django-health-check](https://github.com/revsys/django-health-check) library, more information on setting up monitors can be found at [Setting up Monitoring](https://django-health-check.readthedocs.io/en/latest/readme.html#setting-up-monitoring):
+## Compatibility
 
-## Credits
+| NetBox Version | Plugin Version | Python Version    |
+|----------------|----------------|-------------------|
+| 4.5+           | 0.3.0          | 3.12, 3.13, 3.14 |
+| 4.0 - 4.4      | 0.2.0          | 3.10, 3.11, 3.12 |
+| 3.4 - 3.7      | 0.1.x          | 3.10, 3.11, 3.12 |
 
-Based on the NetBox plugin tutorial:
+See [COMPATIBILITY.md](https://github.com/netbox-community/netbox-healthcheck-plugin/blob/main/COMPATIBILITY.md) for detailed version information.
 
-- [demo repository](https://github.com/netbox-community/netbox-plugin-demo)
-- [tutorial](https://github.com/netbox-community/netbox-plugin-tutorial)
+## Configuration
 
-This package was created with [Cookiecutter](https://github.com/audreyr/cookiecutter) and the [`netbox-community/cookiecutter-netbox-plugin`](https://github.com/netbox-community/cookiecutter-netbox-plugin) project template.
+Customize which health checks run via `PLUGINS_CONFIG`:
+
+```python
+PLUGINS_CONFIG = {
+    "netbox_healthcheck_plugin": {
+        "checks": [
+            "health_check.Database",
+            "health_check.cache.backends.CacheBackend",
+            "netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck",
+            "netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck",
+        ]
+    }
+}
+```
+
+You can add custom health checks or disable specific checks. See the [Configuration Guide](https://netbox-community.github.io/netbox-healthcheck-plugin/configuration/) for more options.
+
+## Documentation
+
+Full documentation is available at: https://netbox-community.github.io/netbox-healthcheck-plugin/
+
+- [Installation Guide](https://netbox-community.github.io/netbox-healthcheck-plugin/installation/)
+- [Configuration Options](https://netbox-community.github.io/netbox-healthcheck-plugin/configuration/)
+- [Contributing Guidelines](https://netbox-community.github.io/netbox-healthcheck-plugin/contributing/)
+- [Changelog](https://netbox-community.github.io/netbox-healthcheck-plugin/changelog/)
+
+## Development
+
+This plugin uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting:
+
+```bash
+# Install development dependencies
+pip install -e ".[test,docs]"
+
+# Run linting and formatting
+ruff check .
+ruff format .
+
+# Run tests
+pytest
+
+# Install pre-commit hooks
+pre-commit install
+
+# Build documentation
+mkdocs serve
+```
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/netbox-community/netbox-healthcheck-plugin/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/netbox-community/netbox-healthcheck-plugin/discussions)
+- **Source**: [GitHub Repository](https://github.com/netbox-community/netbox-healthcheck-plugin)
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](https://github.com/netbox-community/netbox-healthcheck-plugin/blob/main/LICENSE) file for details.

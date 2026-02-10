@@ -1,8 +1,8 @@
 """Top-level package for NetBox HealthCheck Plugin."""
 
-__author__ = """Arthur Hanson"""
-__email__ = 'ahanson@netboxlabs.com'
-__version__ = '0.2.0'
+__author__ = 'NetBox Labs'
+__email__ = 'support@netboxlabs.com'
+__version__ = '0.3.0'
 
 
 from netbox.plugins import PluginConfig
@@ -12,14 +12,24 @@ class HealthCheckConfig(PluginConfig):
     name = 'netbox_healthcheck_plugin'
     verbose_name = 'NetBox HealthCheck Plugin'
     description = 'NetBox plugin for HealthCheck.'
-    version = 'version'
+    version = '0.3.0'
+    author = 'NetBox Labs'
+    author_email = 'support@netboxlabs.com'
     base_url = 'netbox_healthcheck_plugin'
     django_apps = [
         'health_check',
-        'health_check.db',
-        'health_check.contrib.migrations',
-        'health_check.contrib.redis',
+        'health_check.cache',
+        'netbox_healthcheck_plugin.backends',
     ]
-    min_version = "v4.0-beta1"
+    min_version = '4.5.0'
+    default_settings = {
+        'checks': [
+            'health_check.Database',
+            'health_check.cache.backends.CacheBackend',
+            'netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck',
+            'netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck',
+        ]
+    }
+
 
 config = HealthCheckConfig
