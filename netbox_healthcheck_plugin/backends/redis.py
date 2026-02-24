@@ -6,6 +6,8 @@ dict instead of expecting a REDIS_URL setting. NetBox uses separate HOST, PORT,
 DATABASE, PASSWORD, etc. fields rather than a connection URL.
 """
 
+from urllib.parse import quote
+
 from django.conf import settings
 from health_check.backends import HealthCheck
 from health_check.exceptions import ServiceUnavailable
@@ -28,7 +30,7 @@ def build_redis_url_from_config(redis_config: dict) -> str:
     host = redis_config.get('HOST', 'localhost')
     port = redis_config.get('PORT', 6379)
     database = redis_config.get('DATABASE', 0)
-    password = redis_config.get('PASSWORD', '')
+    password = quote(redis_config.get('PASSWORD', ''))
     username = redis_config.get('USERNAME', '')
     use_ssl = redis_config.get('SSL', False)
 
