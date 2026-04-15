@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Breaking Changes
+* Require `django-health-check >= 4.2.2` — v3 is no longer supported
+* Removed the `NetBoxRedisHealthCheck` backwards-compatibility alias (use `NetBoxRedisCacheHealthCheck`)
+* Default `checks` path for the cache backend changed from `health_check.cache.backends.CacheBackend` to `health_check.Cache`. Users who pinned `checks` in `PLUGINS_CONFIG` must update it.
+* `health_check.cache` is no longer registered as a Django app; only `health_check` is installed.
+
+### Features
+* Redis password is URL-encoded when constructing the connection URL, so passwords containing special characters no longer break the connection ([#20](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/20) by [@tacerus](https://github.com/tacerus)).
+
+### Internal
+* `BaseNetBoxRedisHealthCheck` is now a dataclass, and `check_status` has been renamed to `run` to match django-health-check v4's API.
+
 ## 0.3.0 (2026-02-06)
 
 ### Breaking Changes

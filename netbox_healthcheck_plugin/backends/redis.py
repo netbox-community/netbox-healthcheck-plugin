@@ -6,10 +6,12 @@ dict instead of expecting a REDIS_URL setting. NetBox uses separate HOST, PORT,
 DATABASE, PASSWORD, etc. fields rather than a connection URL.
 """
 
+import dataclasses
+import warnings
 from urllib.parse import quote
 
 from django.conf import settings
-from health_check.backends import HealthCheck
+from health_check.base import HealthCheck
 from health_check.exceptions import ServiceUnavailable
 
 
@@ -70,6 +72,7 @@ def build_redis_url_options(redis_config: dict) -> dict:
     return options
 
 
+@dataclasses.dataclass(repr=False)
 class BaseNetBoxRedisHealthCheck(HealthCheck):
     """
     Base health check backend for Redis that reads from NetBox's REDIS configuration.
@@ -82,16 +85,13 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
 
     redis_config_key: str = 'caching'
 
-    def __init__(self):
-        super().__init__()
-        # Build connection parameters from NetBox's REDIS config at instantiation time
+    def __post_init__(self):
+        """Build connection parameters from NetBox's REDIS config at instantiation time."""
         redis_settings = getattr(settings, 'REDIS', {})
         redis_config = redis_settings.get(self.redis_config_key, {})
 
         # Warn if using default configuration (empty config dict)
         if not redis_config:
-            import warnings
-
             warnings.warn(
                 f"No Redis configuration found for '{self.redis_config_key}' in settings.REDIS. "
                 f'Using defaults: localhost:6379/0. This may indicate a configuration issue.',
@@ -102,7 +102,7 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
         self._redis_url = build_redis_url_from_config(redis_config)
         self._redis_url_options = build_redis_url_options(redis_config)
 
-    def check_status(self):
+    def run(self):
         """Check Redis connectivity by issuing a PING command."""
         try:
             import redis
@@ -131,17 +131,15 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
         return f'redis:{self.redis_config_key}'
 
 
+@dataclasses.dataclass(repr=False)
 class NetBoxRedisCacheHealthCheck(BaseNetBoxRedisHealthCheck):
     """Health check for NetBox's caching Redis instance."""
 
-    redis_config_key = 'caching'
+    redis_config_key: str = 'caching'
 
 
+@dataclasses.dataclass(repr=False)
 class NetBoxRedisTasksHealthCheck(BaseNetBoxRedisHealthCheck):
     """Health check for NetBox's tasks/RQ Redis instance."""
 
-    redis_config_key = 'tasks'
-
-
-# Backwards compatibility alias
-NetBoxRedisHealthCheck = NetBoxRedisCacheHealthCheck
+    redis_config_key: str = 'tasks'

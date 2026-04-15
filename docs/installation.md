@@ -116,7 +116,7 @@ If you see import errors:
 
 1. Check that all dependencies are installed:
    ```bash
-   pip install django-health-check>=3.23.0 redis>=4.0
+   pip install 'django-health-check>=4.2.2' 'redis>=4.0'
    ```
 
 2. Verify your NetBox version meets the minimum requirement (>= 4.5.0)

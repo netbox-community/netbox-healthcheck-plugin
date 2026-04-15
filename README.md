@@ -54,7 +54,7 @@ PLUGINS_CONFIG = {
     "netbox_healthcheck_plugin": {
         "checks": [
             "health_check.Database",
-            "health_check.cache.backends.CacheBackend",
+            "health_check.Cache",
             "netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck",
             "netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck",
         ]

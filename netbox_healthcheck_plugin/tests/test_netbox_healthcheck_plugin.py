@@ -27,7 +27,7 @@ class TestHealthCheckPlugin(TestCase):
         self.assertGreater(len(default_checks), 0)
         # Verify default checks are present
         self.assertIn('health_check.Database', default_checks)
-        self.assertIn('health_check.cache.backends.CacheBackend', default_checks)
+        self.assertIn('health_check.Cache', default_checks)
         self.assertIn('netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck', default_checks)
         self.assertIn('netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck', default_checks)
 
@@ -51,7 +51,7 @@ class TestHealthCheckConfiguration(TestCase):
 
         default_checks = [
             'health_check.Database',
-            'health_check.cache.backends.CacheBackend',
+            'health_check.Cache',
             'netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck',
             'netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck',
         ]
@@ -231,7 +231,7 @@ class TestNetBoxRedisCacheHealthCheck(TestCase):
 
     @patch('netbox_healthcheck_plugin.backends.redis.settings')
     @patch('redis.Redis.from_url')
-    def test_check_status_success(self, mock_from_url, mock_settings):
+    def test_run_success(self, mock_from_url, mock_settings):
         """Test successful health check."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
 
@@ -240,14 +240,14 @@ class TestNetBoxRedisCacheHealthCheck(TestCase):
         mock_from_url.return_value = mock_connection
 
         backend = NetBoxRedisCacheHealthCheck()
-        backend.check_status()
+        # run() returns None on success, raises on failure
+        self.assertIsNone(backend.run())
 
         mock_from_url.assert_called_once()
         mock_connection.ping.assert_called_once()
-        self.assertEqual(len(backend.errors), 0)
 
     @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_check_status_connection_error(self, mock_settings):
+    def test_run_connection_error(self, mock_settings):
         """Test health check with connection error."""
         import redis
         from health_check.exceptions import ServiceUnavailable
@@ -261,7 +261,7 @@ class TestNetBoxRedisCacheHealthCheck(TestCase):
         with patch.object(redis.Redis, 'from_url') as mock_from_url:
             mock_from_url.side_effect = redis.ConnectionError('Connection refused')
             with self.assertRaises(ServiceUnavailable):
-                backend.check_status()
+                backend.run()
 
 
 class TestNetBoxRedisTasksHealthCheck(TestCase):
@@ -300,7 +300,7 @@ class TestNetBoxRedisTasksHealthCheck(TestCase):
 
     @patch('netbox_healthcheck_plugin.backends.redis.settings')
     @patch('redis.Redis.from_url')
-    def test_check_status_success(self, mock_from_url, mock_settings):
+    def test_run_success(self, mock_from_url, mock_settings):
         """Test successful health check."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisTasksHealthCheck
 
@@ -309,8 +309,8 @@ class TestNetBoxRedisTasksHealthCheck(TestCase):
         mock_from_url.return_value = mock_connection
 
         backend = NetBoxRedisTasksHealthCheck()
-        backend.check_status()
+        # run() returns None on success, raises on failure
+        self.assertIsNone(backend.run())
 
         mock_from_url.assert_called_once()
         mock_connection.ping.assert_called_once()
-        self.assertEqual(len(backend.errors), 0)
