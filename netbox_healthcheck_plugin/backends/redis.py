@@ -6,8 +6,12 @@ dict instead of expecting a REDIS_URL setting. NetBox uses separate HOST, PORT,
 DATABASE, PASSWORD, etc. fields rather than a connection URL.
 """
 
+import dataclasses
+from contextlib import closing
+from urllib.parse import quote
+
 from django.conf import settings
-from health_check.backends import HealthCheck
+from health_check.base import HealthCheck
 from health_check.exceptions import ServiceUnavailable
 
 
@@ -28,8 +32,8 @@ def build_redis_url_from_config(redis_config: dict) -> str:
     host = redis_config.get('HOST', 'localhost')
     port = redis_config.get('PORT', 6379)
     database = redis_config.get('DATABASE', 0)
-    password = redis_config.get('PASSWORD', '')
-    username = redis_config.get('USERNAME', '')
+    password = quote(redis_config.get('PASSWORD', ''), safe='')
+    username = quote(redis_config.get('USERNAME', ''), safe='')
     use_ssl = redis_config.get('SSL', False)
 
     scheme = 'rediss' if use_ssl else 'redis'
@@ -68,6 +72,7 @@ def build_redis_url_options(redis_config: dict) -> dict:
     return options
 
 
+@dataclasses.dataclass(repr=False)
 class BaseNetBoxRedisHealthCheck(HealthCheck):
     """
     Base health check backend for Redis that reads from NetBox's REDIS configuration.
@@ -80,66 +85,78 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
 
     redis_config_key: str = 'caching'
 
-    def __init__(self):
-        super().__init__()
-        # Build connection parameters from NetBox's REDIS config at instantiation time
+    def __post_init__(self):
+        """Read and validate the NetBox Redis config at instantiation time.
+
+        If the expected key is missing from settings.REDIS we record the error
+        here and surface it from run(); we deliberately do NOT fall back to
+        localhost defaults, because that would let a misconfigured deployment
+        silently report healthy by pinging a different Redis (or nothing at all).
+        """
         redis_settings = getattr(settings, 'REDIS', {})
         redis_config = redis_settings.get(self.redis_config_key, {})
 
-        # Warn if using default configuration (empty config dict)
         if not redis_config:
-            import warnings
-
-            warnings.warn(
-                f"No Redis configuration found for '{self.redis_config_key}' in settings.REDIS. "
-                f'Using defaults: localhost:6379/0. This may indicate a configuration issue.',
-                RuntimeWarning,
-                stacklevel=2,
+            self._config_error: str | None = (
+                f"No Redis configuration found for '{self.redis_config_key}' in settings.REDIS"
             )
+            self._redis_url = ''
+            self._display_url = ''
+            self._redis_url_options: dict = {}
+            return
 
+        self._config_error = None
         self._redis_url = build_redis_url_from_config(redis_config)
+        # Precompute a password-masked URL for error messages by rebuilding from a
+        # config with the password replaced. Rebuilding (rather than parsing the
+        # real URL) avoids edge cases with username-only URLs where the scheme's
+        # colon gets misinterpreted as an auth separator.
+        if redis_config.get('PASSWORD'):
+            # Use an alphanumeric mask so url-encoding leaves it intact.
+            masked_config = dict(redis_config, PASSWORD='REDACTED')
+            self._display_url = build_redis_url_from_config(masked_config)
+        else:
+            self._display_url = self._redis_url
         self._redis_url_options = build_redis_url_options(redis_config)
 
-    def check_status(self):
+    def run(self):
         """Check Redis connectivity by issuing a PING command."""
+        if self._config_error:
+            raise ServiceUnavailable(self._config_error)
+
         try:
             import redis
         except ImportError as e:
             raise ServiceUnavailable('redis library not installed') from e
 
-        # Mask password in URL for error messages
-        display_url = self._redis_url
-        if '@' in display_url and ':' in display_url.split('@')[0]:
-            # Replace password with asterisks
-            parts = display_url.split('@')
-            auth_parts = parts[0].rsplit(':', 1)
-            if len(auth_parts) == 2:
-                display_url = f'{auth_parts[0]}:***@{parts[1]}'
+        def _safe_msg(exc: Exception) -> str:
+            """Strip the real URL (which contains the password) from the error message."""
+            return str(exc).replace(self._redis_url, self._display_url)
 
-        try:
-            connection = redis.Redis.from_url(self._redis_url, **self._redis_url_options)
-            connection.ping()
-        except redis.ConnectionError as e:
-            raise ServiceUnavailable(f'Redis connection error to {display_url}: {e}') from e
-        except Exception as e:
-            raise ServiceUnavailable(f'Redis error connecting to {display_url}: {e}') from e
+        with closing(redis.Redis.from_url(self._redis_url, **self._redis_url_options)) as connection:
+            try:
+                connection.ping()
+            except redis.ConnectionError as e:
+                raise ServiceUnavailable(f'Redis connection error to {self._display_url}: {_safe_msg(e)}') from None
+            except redis.RedisError as e:
+                raise ServiceUnavailable(
+                    f'Redis error ({type(e).__name__}) for {self._display_url}: {_safe_msg(e)}'
+                ) from None
 
     def __repr__(self):
         """Return a unique identifier for this health check."""
         return f'redis:{self.redis_config_key}'
 
 
+@dataclasses.dataclass(repr=False)
 class NetBoxRedisCacheHealthCheck(BaseNetBoxRedisHealthCheck):
     """Health check for NetBox's caching Redis instance."""
 
-    redis_config_key = 'caching'
+    redis_config_key: str = 'caching'
 
 
+@dataclasses.dataclass(repr=False)
 class NetBoxRedisTasksHealthCheck(BaseNetBoxRedisHealthCheck):
     """Health check for NetBox's tasks/RQ Redis instance."""
 
-    redis_config_key = 'tasks'
-
-
-# Backwards compatibility alias
-NetBoxRedisHealthCheck = NetBoxRedisCacheHealthCheck
+    redis_config_key: str = 'tasks'

@@ -18,14 +18,13 @@ class HealthCheckConfig(PluginConfig):
     base_url = 'netbox_healthcheck_plugin'
     django_apps = [
         'health_check',
-        'health_check.cache',
         'netbox_healthcheck_plugin.backends',
     ]
     min_version = '4.5.0'
     default_settings = {
         'checks': [
             'health_check.Database',
-            'health_check.cache.backends.CacheBackend',
+            'health_check.Cache',
             'netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck',
             'netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck',
         ]

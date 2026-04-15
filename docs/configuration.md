@@ -25,7 +25,7 @@ PLUGINS_CONFIG = {
     "netbox_healthcheck_plugin": {
         "checks": [
             "health_check.Database",
-            "health_check.cache.backends.CacheBackend",
+            "health_check.Cache",
             "netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck",
             "netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck",
         ]
@@ -48,7 +48,7 @@ Verifies PostgreSQL database connectivity by performing a simple database query.
 - Database authentication succeeds
 - Basic database operations work
 
-#### `health_check.cache.backends.CacheBackend`
+#### `health_check.Cache`
 
 Tests Django cache framework operations (set/get) using NetBox's configured cache backend (typically Redis).
 
@@ -89,7 +89,7 @@ PLUGINS_CONFIG = {
         "checks": [
             # Default checks
             "health_check.Database",
-            "health_check.cache.backends.CacheBackend",
+            "health_check.Cache",
             "netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck",
             "netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck",
 
@@ -114,19 +114,18 @@ For programmatic access, request the health check endpoint with `Accept: applica
 curl -H "Accept: application/json" https://netbox.example.com/plugins/netbox_healthcheck_plugin/healthcheck/
 ```
 
-Response format:
+Response format (v4 returns a flat map keyed by each check's `repr`):
 
 ```json
 {
-  "status": "working",
-  "checks": {
-    "Database": "working",
-    "CacheBackend": "working",
-    "NetBoxRedisCacheHealthCheck": "working",
-    "NetBoxRedisTasksHealthCheck": "working"
-  }
+  "Database(alias='default')": "OK",
+  "Cache(alias='default')": "OK",
+  "redis:caching": "OK",
+  "redis:tasks": "OK"
 }
 ```
+
+Failed checks show the error message instead of `OK`.
 
 ### HTTP Status Codes
 
@@ -137,29 +136,31 @@ Response format:
 
 To create your own health check:
 
-1. Create a new class extending `health_check.backends.BaseHealthCheckBackend`:
+1. Create a new dataclass extending `health_check.HealthCheck` and implement `run`:
 
 ```python
-from health_check.backends import BaseHealthCheckBackend
+import dataclasses
+
+import requests
+from health_check import HealthCheck
 from health_check.exceptions import ServiceUnavailable
 
-class MyCustomHealthCheck(BaseHealthCheckBackend):
-    #: The status endpoints will respond with a 200 status code
-    #: even if the check errors.
-    critical_service = False
 
-    def check_status(self):
-        # Perform your health check logic
+@dataclasses.dataclass
+class MyCustomHealthCheck(HealthCheck):
+    url: str = "https://api.example.com/status"
+
+    def run(self):
+        # Raise ServiceUnavailable to signal failure. Returning None signals success.
         try:
-            # Example: check external API
-            response = requests.get('https://api.example.com/status', timeout=5)
-            if response.status_code != 200:
-                self.add_error(ServiceUnavailable("API returned non-200 status"))
-        except Exception as e:
-            self.add_error(ServiceUnavailable("API is unreachable"), e)
+            response = requests.get(self.url, timeout=5)
+        except requests.RequestException as e:
+            raise ServiceUnavailable("API is unreachable") from e
+        if response.status_code != 200:
+            raise ServiceUnavailable("API returned non-200 status")
 
-    def identifier(self):
-        return "MyCustomCheck"
+    def __repr__(self):
+        return f"MyCustomCheck({self.url})"
 ```
 
 2. Add to your plugin configuration:
@@ -169,7 +170,7 @@ PLUGINS_CONFIG = {
     "netbox_healthcheck_plugin": {
         "checks": [
             "health_check.Database",
-            "health_check.cache.backends.CacheBackend",
+            "health_check.Cache",
             "netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck",
             "netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck",
             "my_plugin.health.MyCustomHealthCheck",
@@ -178,7 +179,7 @@ PLUGINS_CONFIG = {
 }
 ```
 
-For more details on creating health checks, see the [django-health-check documentation](https://django-health-check.readthedocs.io/).
+For more details on creating health checks, see the [django-health-check documentation](https://codingjoe.dev/django-health-check/).
 
 ## Next Steps
 
