@@ -101,11 +101,22 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
                 f"No Redis configuration found for '{self.redis_config_key}' in settings.REDIS"
             )
             self._redis_url = ''
+            self._display_url = ''
             self._redis_url_options: dict = {}
             return
 
         self._config_error = None
         self._redis_url = build_redis_url_from_config(redis_config)
+        # Precompute a password-masked URL for error messages by rebuilding from a
+        # config with the password replaced. Rebuilding (rather than parsing the
+        # real URL) avoids edge cases with username-only URLs where the scheme's
+        # colon gets misinterpreted as an auth separator.
+        if redis_config.get('PASSWORD'):
+            # Use an alphanumeric mask so url-encoding leaves it intact.
+            masked_config = dict(redis_config, PASSWORD='REDACTED')
+            self._display_url = build_redis_url_from_config(masked_config)
+        else:
+            self._display_url = self._redis_url
         self._redis_url_options = build_redis_url_options(redis_config)
 
     def run(self):
@@ -118,27 +129,18 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
         except ImportError as e:
             raise ServiceUnavailable('redis library not installed') from e
 
-        # Mask password in URL for error messages
-        display_url = self._redis_url
-        if '@' in display_url and ':' in display_url.split('@')[0]:
-            # Replace password with asterisks
-            parts = display_url.split('@')
-            auth_parts = parts[0].rsplit(':', 1)
-            if len(auth_parts) == 2:
-                display_url = f'{auth_parts[0]}:***@{parts[1]}'
-
         def _safe_msg(exc: Exception) -> str:
             """Strip the real URL (which contains the password) from the error message."""
-            return str(exc).replace(self._redis_url, display_url)
+            return str(exc).replace(self._redis_url, self._display_url)
 
         with closing(redis.Redis.from_url(self._redis_url, **self._redis_url_options)) as connection:
             try:
                 connection.ping()
             except redis.ConnectionError as e:
-                raise ServiceUnavailable(f'Redis connection error to {display_url}: {_safe_msg(e)}') from None
+                raise ServiceUnavailable(f'Redis connection error to {self._display_url}: {_safe_msg(e)}') from None
             except redis.RedisError as e:
                 raise ServiceUnavailable(
-                    f'Redis error ({type(e).__name__}) for {display_url}: {_safe_msg(e)}'
+                    f'Redis error ({type(e).__name__}) for {self._display_url}: {_safe_msg(e)}'
                 ) from None
 
     def __repr__(self):
