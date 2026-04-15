@@ -120,6 +120,10 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
             if len(auth_parts) == 2:
                 display_url = f'{auth_parts[0]}:***@{parts[1]}'
 
+        def _safe_msg(exc: Exception) -> str:
+            """Strip the real URL (which contains the password) from the error message."""
+            return str(exc).replace(self._redis_url, display_url)
+
         try:
             connection = redis.Redis.from_url(self._redis_url, **self._redis_url_options)
             try:
@@ -127,9 +131,9 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
             finally:
                 connection.close()
         except redis.ConnectionError as e:
-            raise ServiceUnavailable(f'Redis connection error to {display_url}: {e}') from e
+            raise ServiceUnavailable(f'Redis connection error to {display_url}: {_safe_msg(e)}') from None
         except redis.RedisError as e:
-            raise ServiceUnavailable(f'Redis error ({type(e).__name__}) for {display_url}: {e}') from e
+            raise ServiceUnavailable(f'Redis error ({type(e).__name__}) for {display_url}: {_safe_msg(e)}') from None
 
     def __repr__(self):
         """Return a unique identifier for this health check."""
