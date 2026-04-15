@@ -123,8 +123,8 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
             connection.ping()
         except redis.ConnectionError as e:
             raise ServiceUnavailable(f'Redis connection error to {display_url}: {e}') from e
-        except Exception as e:
-            raise ServiceUnavailable(f'Redis error connecting to {display_url}: {e}') from e
+        except redis.RedisError as e:
+            raise ServiceUnavailable(f'Redis error ({type(e).__name__}) for {display_url}: {e}') from e
 
     def __repr__(self):
         """Return a unique identifier for this health check."""
