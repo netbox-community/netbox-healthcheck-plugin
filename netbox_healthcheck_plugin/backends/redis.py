@@ -7,7 +7,6 @@ DATABASE, PASSWORD, etc. fields rather than a connection URL.
 """
 
 import dataclasses
-import warnings
 from urllib.parse import quote
 
 from django.conf import settings
@@ -86,24 +85,33 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
     redis_config_key: str = 'caching'
 
     def __post_init__(self):
-        """Build connection parameters from NetBox's REDIS config at instantiation time."""
+        """Read and validate the NetBox Redis config at instantiation time.
+
+        If the expected key is missing from settings.REDIS we record the error
+        here and surface it from run(); we deliberately do NOT fall back to
+        localhost defaults, because that would let a misconfigured deployment
+        silently report healthy by pinging a different Redis (or nothing at all).
+        """
         redis_settings = getattr(settings, 'REDIS', {})
         redis_config = redis_settings.get(self.redis_config_key, {})
 
-        # Warn if using default configuration (empty config dict)
         if not redis_config:
-            warnings.warn(
-                f"No Redis configuration found for '{self.redis_config_key}' in settings.REDIS. "
-                f'Using defaults: localhost:6379/0. This may indicate a configuration issue.',
-                RuntimeWarning,
-                stacklevel=2,
+            self._config_error: str | None = (
+                f"No Redis configuration found for '{self.redis_config_key}' in settings.REDIS"
             )
+            self._redis_url = ''
+            self._redis_url_options: dict = {}
+            return
 
+        self._config_error = None
         self._redis_url = build_redis_url_from_config(redis_config)
         self._redis_url_options = build_redis_url_options(redis_config)
 
     def run(self):
         """Check Redis connectivity by issuing a PING command."""
+        if self._config_error:
+            raise ServiceUnavailable(self._config_error)
+
         try:
             import redis
         except ImportError as e:
