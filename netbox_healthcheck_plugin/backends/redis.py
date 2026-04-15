@@ -7,6 +7,7 @@ DATABASE, PASSWORD, etc. fields rather than a connection URL.
 """
 
 import dataclasses
+from contextlib import closing
 from urllib.parse import quote
 
 from django.conf import settings
@@ -130,13 +131,15 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
             """Strip the real URL (which contains the password) from the error message."""
             return str(exc).replace(self._redis_url, display_url)
 
-        try:
-            connection = redis.Redis.from_url(self._redis_url, **self._redis_url_options)
-            connection.ping()
-        except redis.ConnectionError as e:
-            raise ServiceUnavailable(f'Redis connection error to {display_url}: {_safe_msg(e)}') from None
-        except redis.RedisError as e:
-            raise ServiceUnavailable(f'Redis error ({type(e).__name__}) for {display_url}: {_safe_msg(e)}') from None
+        with closing(redis.Redis.from_url(self._redis_url, **self._redis_url_options)) as connection:
+            try:
+                connection.ping()
+            except redis.ConnectionError as e:
+                raise ServiceUnavailable(f'Redis connection error to {display_url}: {_safe_msg(e)}') from None
+            except redis.RedisError as e:
+                raise ServiceUnavailable(
+                    f'Redis error ({type(e).__name__}) for {display_url}: {_safe_msg(e)}'
+                ) from None
 
     def __repr__(self):
         """Return a unique identifier for this health check."""
