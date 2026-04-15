@@ -32,8 +32,8 @@ def build_redis_url_from_config(redis_config: dict) -> str:
     host = redis_config.get('HOST', 'localhost')
     port = redis_config.get('PORT', 6379)
     database = redis_config.get('DATABASE', 0)
-    password = quote(redis_config.get('PASSWORD', ''))
-    username = redis_config.get('USERNAME', '')
+    password = quote(redis_config.get('PASSWORD', ''), safe='')
+    username = quote(redis_config.get('USERNAME', ''), safe='')
     use_ssl = redis_config.get('SSL', False)
 
     scheme = 'rediss' if use_ssl else 'redis'
