@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 (2026-09-24)
+
+### Breaking Changes
+* Require django-health-check >= 4.6 (fixes startup crash on NetBox 4.7 / Django 6.1: "The EMAIL_BACKEND setting is not available when MAILERS is defined") ([#22](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/22))
+* Default cache check is now `health_check.Cache`; `health_check.cache.backends.CacheBackend` and other 3.x check paths in `PLUGINS_CONFIG['checks']` are still accepted but log a deprecation warning
+* Custom health checks must use the django-health-check 4.x API (`HealthCheck` dataclass with `run()`)
+* JSON response keys are now each check's `repr` (e.g. `Database(alias='default')`) with `"OK"` or the error message as the value
+
 ## 0.3.0 (2026-02-06)
 
 ### Breaking Changes

@@ -41,6 +41,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.12', '3.13', '3.14']
+        netbox-version: ['v4.5.2', 'v4.7.1']
     services:
       redis:
         image: redis
@@ -75,7 +76,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: netbox-community/netbox
-          ref: v4.5.2
+          ref: ${{ matrix.netbox-version }}
           path: netbox
 
       - name: Install netbox-healthcheck-plugin

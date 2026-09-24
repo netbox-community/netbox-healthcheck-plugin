@@ -14,7 +14,7 @@ class TestHealthCheckPlugin(TestCase):
         from netbox_healthcheck_plugin import HealthCheckConfig
 
         self.assertEqual(HealthCheckConfig.name, 'netbox_healthcheck_plugin')
-        self.assertEqual(HealthCheckConfig.version, '0.3.0')
+        self.assertEqual(HealthCheckConfig.version, '0.4.0')
         self.assertEqual(HealthCheckConfig.min_version, '4.5.0')
 
     def test_plugin_default_settings(self):
@@ -27,7 +27,7 @@ class TestHealthCheckPlugin(TestCase):
         self.assertGreater(len(default_checks), 0)
         # Verify default checks are present
         self.assertIn('health_check.Database', default_checks)
-        self.assertIn('health_check.cache.backends.CacheBackend', default_checks)
+        self.assertIn('health_check.Cache', default_checks)
         self.assertIn('netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck', default_checks)
         self.assertIn('netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck', default_checks)
 
@@ -51,7 +51,7 @@ class TestHealthCheckConfiguration(TestCase):
 
         default_checks = [
             'health_check.Database',
-            'health_check.cache.backends.CacheBackend',
+            'health_check.Cache',
             'netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck',
             'netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck',
         ]
@@ -93,6 +93,39 @@ class TestHealthCheckConfiguration(TestCase):
 
         self.assertEqual(checks, [])
         mock_get_config.assert_called_once_with('netbox_healthcheck_plugin', 'checks')
+
+    @patch('netbox_healthcheck_plugin.views.get_plugin_config')
+    def test_legacy_check_paths_resolved(self, mock_get_config):
+        """Test that django-health-check 3.x check paths are mapped to their 4.x equivalents."""
+        from netbox_healthcheck_plugin.views import HealthCheckListView, _warn_legacy_check
+
+        mock_get_config.return_value = [
+            'health_check.Database',
+            'health_check.cache.backends.CacheBackend',
+        ]
+        _warn_legacy_check.cache_clear()
+
+        view = HealthCheckListView()
+        with self.assertLogs('netbox_healthcheck_plugin', level='WARNING'):
+            checks = view.checks
+
+        self.assertEqual(checks, ['health_check.Database', 'health_check.Cache'])
+
+    @patch('netbox_healthcheck_plugin.views.get_plugin_config')
+    def test_default_checks_instantiate(self, mock_get_config):
+        """Test that every default check path imports and instantiates."""
+        from health_check import HealthCheck
+
+        from netbox_healthcheck_plugin import HealthCheckConfig
+        from netbox_healthcheck_plugin.views import HealthCheckListView
+
+        mock_get_config.return_value = HealthCheckConfig.default_settings['checks']
+
+        checks = list(HealthCheckListView().get_checks())
+
+        self.assertEqual(len(checks), len(HealthCheckConfig.default_settings['checks']))
+        for check in checks:
+            self.assertIsInstance(check, HealthCheck)
 
 
 class TestBuildRedisUrl(TestCase):
@@ -240,11 +273,11 @@ class TestNetBoxRedisCacheHealthCheck(TestCase):
         mock_from_url.return_value = mock_connection
 
         backend = NetBoxRedisCacheHealthCheck()
-        backend.check_status()
+        backend.run()
 
         mock_from_url.assert_called_once()
         mock_connection.ping.assert_called_once()
-        self.assertEqual(len(backend.errors), 0)
+        mock_connection.close.assert_called_once()
 
     @patch('netbox_healthcheck_plugin.backends.redis.settings')
     def test_check_status_connection_error(self, mock_settings):
@@ -261,7 +294,7 @@ class TestNetBoxRedisCacheHealthCheck(TestCase):
         with patch.object(redis.Redis, 'from_url') as mock_from_url:
             mock_from_url.side_effect = redis.ConnectionError('Connection refused')
             with self.assertRaises(ServiceUnavailable):
-                backend.check_status()
+                backend.run()
 
 
 class TestNetBoxRedisTasksHealthCheck(TestCase):
@@ -309,8 +342,8 @@ class TestNetBoxRedisTasksHealthCheck(TestCase):
         mock_from_url.return_value = mock_connection
 
         backend = NetBoxRedisTasksHealthCheck()
-        backend.check_status()
+        backend.run()
 
         mock_from_url.assert_called_once()
         mock_connection.ping.assert_called_once()
-        self.assertEqual(len(backend.errors), 0)
+        mock_connection.close.assert_called_once()
