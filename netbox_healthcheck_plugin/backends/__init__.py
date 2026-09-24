@@ -10,6 +10,6 @@ from .redis import (
 __all__ = [
     'BaseNetBoxRedisHealthCheck',
     'NetBoxRedisCacheHealthCheck',
-    'NetBoxRedisTasksHealthCheck',
     'NetBoxRedisHealthCheck',
+    'NetBoxRedisTasksHealthCheck',
 ]

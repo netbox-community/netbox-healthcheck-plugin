@@ -1,0 +1,28 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY.
+_commit: ff54ed7
+_src_path: git@github.com:netboxlabs/netbox-plugin-scaffold.git
+author_email: support@netboxlabs.com
+author_name: NetBox Labs
+branching_support: true
+commercial: false
+current_year: 2026
+default_model_name: ''
+dev_status: 4 - Beta
+django_version: '5.2'
+github_org: netbox-community
+layout_style: flat
+netbox_max_version: 4.7.99
+netbox_min_version: 4.5.0
+netbox_test_max_ref: v4.7.1
+netbox_test_min_ref: v4.5.2
+package_name: netbox_healthcheck_plugin
+plugin_name: NetBox HealthCheck Plugin
+python_version: '3.12'
+python_versions:
+- '3.12'
+- '3.13'
+- '3.14'
+repo_slug: netbox-healthcheck-plugin
+ruff_version: 0.15.14
+short_description: NetBox plugin for HealthCheck.
+version: 0.4.0
