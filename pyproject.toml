@@ -64,6 +64,8 @@ ignore = ["E501"]
 known-first-party = ["netbox_healthcheck_plugin"]
 
 [tool.ruff.format]
+# Keep doc snippets (e.g. PLUGINS_CONFIG examples) in NetBox's documentation style
+exclude = ["*.md"]
 quote-style = "single"
 indent-style = "space"
 
