@@ -43,11 +43,20 @@ curl -H "Authorization: Bearer nbt_<key>.<token>" \
   "https://netbox.example.com/plugins/netbox_healthcheck_plugin/healthcheck/?format=json"
 ```
 
-Anonymous browser requests are redirected to the login page, and an invalid token gets `403 Forbidden`. If NetBox's own
+Any user's token works and no particular permission is needed, so a dedicated low-privilege user with a read-only
+token is enough.
+
+Anonymous browser requests (those that prefer `text/html`) are redirected to the login page. Every other anonymous
+request, such as a `?format=` request, curl, or a monitoring probe, gets `401 Unauthorized` rather than a redirect,
+because probes like Kubernetes' treat any 3xx response as healthy. An invalid token gets `403 Forbidden`. If NetBox's own
 `LOGIN_REQUIRED` is `False`, the page is open to everyone, like the rest of NetBox.
 
-To let unauthenticated probes (for example a load balancer or Kubernetes liveness check) reach the endpoint, set
-`login_required` to `False`:
+Checking the token or session needs the database (and the session store), so while the database is down an
+authenticated request fails with a generic `500` error before any check runs, instead of the usual report of which
+check failed. The request still fails, but without detail.
+
+For load balancer health checks and Kubernetes liveness or readiness probes, set `login_required` to `False` so the
+probe needs no credentials and always gets the full report:
 
 ```python
 PLUGINS_CONFIG = {

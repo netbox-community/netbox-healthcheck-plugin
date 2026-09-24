@@ -39,6 +39,7 @@ class TestHealthCheckAccess(TestCase):
     """Test who can reach the healthcheck endpoint."""
 
     url = reverse('plugins:netbox_healthcheck_plugin:healthcheck_list')
+    BROWSER_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
 
     def setUp(self):
         from users.models import User
@@ -58,12 +59,29 @@ class TestHealthCheckAccess(TestCase):
             }
         )
 
-    def test_anonymous_redirected_to_login(self):
-        """By default an anonymous request is sent to the login page."""
-        response = Client().get(self.url)
+    def test_anonymous_browser_redirected_to_login(self):
+        """By default an anonymous browser request is sent to the login page."""
+        response = Client().get(self.url, HTTP_ACCEPT=self.BROWSER_ACCEPT)
 
         self.assertEqual(response.status_code, 302)
         self.assertIn('/login/', response['Location'])
+        self.assertIn('Accept', response['Vary'])
+
+    def test_anonymous_probe_unauthorized(self):
+        """Anonymous non-browser requests get 401, not a redirect a probe would count as healthy."""
+        cases = {
+            'no Accept header': ({}, {}),
+            'wildcard Accept': ({}, {'HTTP_ACCEPT': '*/*'}),
+            'JSON preferred': ({}, {'HTTP_ACCEPT': 'application/json, text/html;q=0.5'}),
+            'format overrides Accept': ({'format': 'json'}, {'HTTP_ACCEPT': self.BROWSER_ACCEPT}),
+        }
+        for name, (params, headers) in cases.items():
+            with self.subTest(name):
+                response = Client().get(self.url, params, **headers)
+
+                self.assertEqual(response.status_code, 401)
+                self.assertEqual(response['WWW-Authenticate'], 'Bearer')
+                self.assertIn('Accept', response['Vary'])
 
     def test_session_user_allowed(self):
         """A logged-in user sees the health check results."""

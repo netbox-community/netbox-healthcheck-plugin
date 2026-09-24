@@ -73,7 +73,7 @@ The supported range per release is in `COMPATIBILITY.md`.
 
 0. When `PLUGINS_CONFIG[...]['login_required']` is `True` (the default), `HealthCheckListView.dispatch` runs NetBox's
    `TokenConditionalLoginRequiredMixin` in a thread: it follows NetBox's `LOGIN_REQUIRED` and accepts a session or an
-   API token (anonymous → login redirect, bad token → 403).
+   API token (anonymous browser → login redirect, other anonymous → 401 via `handle_no_permission`, bad token → 403).
 1. `HealthCheckListView.checks` reads `PLUGINS_CONFIG['netbox_healthcheck_plugin']['checks']`
    (defaults in `PluginConfig.default_settings`) and maps django-health-check 3.x
    dotted paths to their 4.x names (`LEGACY_CHECKS`), logging one warning per
