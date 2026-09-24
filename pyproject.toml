@@ -62,6 +62,7 @@ Changelog = "https://netbox-community.github.io/netbox-healthcheck-plugin/releas
 # Pinned for reproducible CI; items 4 and 5 may extend each group.
 dev = [
     "build==1.2.2",
+    "pre-commit==4.6.2",
     "twine==6.1.0",
 ]
 test = [
@@ -95,8 +96,6 @@ ignore = [
     "docs/development/*.md",
     "mkdocs.yml",
     "testing/configuration.py",
-    # Per-view query-count baseline: test-only tooling, not distribution content.
-    "netbox_healthcheck_plugin/tests/query_counts.json",
     "uv.lock",
     ".github/ISSUE_TEMPLATE/*.yaml",
     ".github/ISSUE_TEMPLATE/config.yml",

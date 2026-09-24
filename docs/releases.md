@@ -44,13 +44,13 @@ Released 2026-02-06.
 
 ## v0.2.0
 
-Released 2024-05006.
+Released 2024-05-06.
 
 * Updates for NetBox v4.0
 
 ---
 
-## v0.1.2
+## v0.1.3
 
 Released 2024-04-08.
 

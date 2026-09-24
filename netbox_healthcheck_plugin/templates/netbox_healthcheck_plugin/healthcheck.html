@@ -36,7 +36,7 @@
                     data-bs-target="#object-list"
                     type="button"
                     role="tab"
-                    aria-controls="edit-form"
+                    aria-controls="object-list"
                     aria-selected="true">Results {% badge results|length %}</button>
           </li>
         </ul>
@@ -56,9 +56,11 @@
           <h5 class="card-header">NetBox HealthCheck Plugin</h5>
           <table class="table table-striped">
             <thead>
-              <th colspan="2">Service</th>
-              <th>Status</th>
-              <th class="align-right">Time Taken</th>
+              <tr>
+                <th colspan="2">Service</th>
+                <th>Status</th>
+                <th class="align-right">Time Taken</th>
+              </tr>
             </thead>
             <tbody>
               {% for result in results %}

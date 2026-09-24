@@ -1,5 +1,5 @@
 ---
-# Default pre-commit configuration for NetBox Labs private plugins.
+# Default pre-commit configuration for NetBox plugins.
 # Generated from netbox-plugin-scaffold.
 # Tool-level config lives in pyproject.toml.
 

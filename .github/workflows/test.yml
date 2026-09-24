@@ -78,9 +78,7 @@ jobs:
           - 'main'
         include:
           - coverage: false
-          # Collect coverage once, on the newest Python / max stable NetBox
-          # leg. Avoids the min-version floor, where the table smoke test is
-          # skipped (see tests/tables) and coverage would undercount.
+          # Collect coverage once, on the newest Python / max stable NetBox leg.
           - python-version: '3.14'
             netbox-ref: 'v4.7.1'
             coverage: true
