@@ -205,6 +205,14 @@ class TestBuildRedisUrl(TestCase):
         url = build_redis_url_from_config(config)
         self.assertEqual(url, 'redis://localhost:6379/0')
 
+    def test_none_credentials(self):
+        """USERNAME/PASSWORD set to None are treated as unset."""
+        from netbox_healthcheck_plugin.backends.redis import build_redis_url_from_config
+
+        config = {'HOST': 'redis.example.com', 'USERNAME': None, 'PASSWORD': None}
+        url = build_redis_url_from_config(config)
+        self.assertEqual(url, 'redis://redis.example.com:6379/0')
+
     def test_password_with_special_chars_is_urlencoded(self):
         """Passwords with reserved URL characters must be percent-encoded."""
         from netbox_healthcheck_plugin.backends.redis import build_redis_url_from_config

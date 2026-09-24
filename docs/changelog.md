@@ -7,6 +7,12 @@
 * Default cache check is now `health_check.Cache`; `health_check.cache.backends.CacheBackend` and other 3.x check paths in `PLUGINS_CONFIG['checks']` are still accepted but log a deprecation warning
 * Custom health checks must use the django-health-check 4.x API (`HealthCheck` dataclass with `run()`)
 * JSON response keys are now each check's `repr` (e.g. `Database(alias='default')`) with `"OK"` or the error message as the value
+* Redis health checks now report unavailable when `REDIS['caching']` or `REDIS['tasks']` is missing, instead of warning and falling back to `localhost:6379`
+
+### Bug Fixes
+* URL-encode the Redis username and password so special characters (including `/`) no longer break the connection ([#20](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/20) by [@tacerus](https://github.com/tacerus), [#21](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/21) by [@RangerRick](https://github.com/RangerRick))
+* Redis passwords are no longer exposed in error messages or chained exceptions, and username-only URLs are no longer mangled when masked ([#21](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/21))
+* Only Redis errors are reported as a failed Redis check; unexpected exceptions propagate to django-health-check's handler ([#21](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/21))
 
 ## 0.3.0 (2026-02-06)
 
