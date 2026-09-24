@@ -41,7 +41,7 @@ The supported range per release is in `COMPATIBILITY.md`.
   runs via `manage.py test`; this plugin does **not** use pytest).
 - ruff for lint + format (config under `[tool.ruff*]` in `pyproject.toml`).
 - pre-commit for local quality gates (`.pre-commit-config.yaml`).
-- mkdocs + mkdocs-material for user-facing docs, published to GitHub Pages.
+- Zensical (reading `mkdocs.yml`) for user-facing docs, published to GitHub Pages.
 
 ## Repository Map
 
@@ -59,9 +59,9 @@ The supported range per release is in `COMPATIBILITY.md`.
 │   │   └── healthcheck.html       , NetBox-styled results page.
 │   └── tests/
 │       └── test_netbox_healthcheck_plugin.py
-├── docs/                          , mkdocs site (quickstart, configuration, releases, development/).
+├── docs/                          , Zensical docs site (quickstart, configuration, releases, development/).
 ├── testing/configuration.py       , NetBox config used by CI and local test runs.
-├── .github/workflows/             , test.yml, claude-review.yml, publish-pypi.yml, mkdocs.yml.
+├── .github/workflows/             , test.yml, claude-review.yml, publish-pypi.yml, docs.yml.
 ├── COMPATIBILITY.md               , Plugin → NetBox version matrix and breaking changes.
 ├── LICENSE                        , Apache License 2.0.
 └── pyproject.toml                 , Metadata, dependencies, tool config.
@@ -117,7 +117,7 @@ departures are deliberate; keep them when resolving `copier update` conflicts.
 - **Releases publish to PyPI** via `publish-pypi.yml` (trusted publishing on tag
   push). The scaffold's `release.yml` publishes to NetBox Labs' internal
   CodeArtifact and was not adopted.
-- **Docs deploy** stays on `mkdocs.yml` (GitHub Pages).
+- **Docs** build with Zensical (NetBox's docs tool; MkDocs is unmaintained) and deploy via `docs.yml` to GitHub Pages.
 - **`CHANGELOG.md` removed**; `docs/releases.md` is the single change log.
 
 ## Commands
@@ -132,7 +132,7 @@ Run inside a NetBox checkout with this plugin installed, with
 | `pre-commit run --all-files` | Run every default-stage hook (ruff, djlint, codespell, yamllint, ...) |
 | `pre-commit run --hook-stage manual check-manifest` | Check the sdist manifest before a release |
 | `python netbox/manage.py runserver` | Start NetBox locally with the plugin loaded |
-| `mkdocs serve` | Preview the user docs |
+| `zensical serve` | Preview the user docs (`pip install -e '.[docs]'`) |
 | `python -m build` | Build sdist + wheel |
 
 ## Development
@@ -175,7 +175,7 @@ full output of any failing test. Do not claim a test passed without running it.
 - **`claude-review.yml`**: Claude PR review on `@claude` mentions from
   collaborators. Needs the `ANTHROPIC_API_KEY` repository secret.
 - **`publish-pypi.yml`**: builds on every push; publishes to PyPI on tag pushes.
-- **`mkdocs.yml`**: deploys the docs to GitHub Pages on pushes to `main`.
+- **`docs.yml`**: builds the docs with Zensical and deploys them to GitHub Pages (Pages source: GitHub Actions) on pushes to `main`.
 
 ## Common Tasks
 

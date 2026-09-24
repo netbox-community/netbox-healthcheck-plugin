@@ -55,7 +55,7 @@ jobs:
       - name: Build docs
         run: |
           pip install -e '.[docs]'
-          mkdocs build --strict
+          zensical build --strict
 
   test:
     name: >-

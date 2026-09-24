@@ -71,9 +71,7 @@ test = [
     "tblib==3.2.2",
 ]
 docs = [
-    "mkdocs==1.6.1",
-    "mkdocs-material==9.7.6",
-    "zensical==0.0.43",
+    "zensical==0.0.62",
 ]
 
 [tool.check-manifest]
