@@ -67,7 +67,8 @@ Restart NetBox and visit: `https://your-netbox/plugins/netbox_healthcheck_plugin
 
 | NetBox Version | Plugin Version | Python Version    |
 |----------------|----------------|-------------------|
-| 4.5+           | 0.3.0          | 3.12, 3.13, 3.14 |
+| 4.5+           | 0.4.0          | 3.12, 3.13, 3.14 |
+| 4.5 - 4.6      | 0.3.0          | 3.12, 3.13, 3.14 |
 | 4.0 - 4.4      | 0.2.0          | 3.10, 3.11, 3.12 |
 | 3.4 - 3.7      | 0.1.x          | 3.10, 3.11, 3.12 |
 

@@ -6,7 +6,8 @@ This document tracks the compatibility between NetBox HealthCheck Plugin release
 
 | Release | Minimum NetBox Version | Maximum NetBox Version | Python Version       |
 |---------|------------------------|------------------------|----------------------|
-| 0.3.0   | 4.5.0                  | 4.99.99                | 3.12, 3.13, 3.14     |
+| 0.4.0   | 4.5.0                  | 4.99.99                | 3.12, 3.13, 3.14     |
+| 0.3.0   | 4.5.0                  | 4.6.x                  | 3.12, 3.13, 3.14     |
 | 0.2.0   | 4.0.0                  | 4.4.x                  | 3.10, 3.11, 3.12     |
 | 0.1.4   | 3.4.0                  | 3.7.x                  | 3.10, 3.11, 3.12     |
 | 0.1.3   | 3.4.0                  | 3.7.x                  | 3.10, 3.11, 3.12     |
@@ -14,6 +15,11 @@ This document tracks the compatibility between NetBox HealthCheck Plugin release
 | 0.1.0   | 3.4.0                  | 3.7.x                  | 3.10, 3.11, 3.12     |
 
 ## Breaking Changes
+
+### Version 0.4.0
+- **django-health-check >= 4.6 required** - Fixes startup failure on NetBox 4.7+ (Django 6.1)
+- **Custom health checks** must use the django-health-check 4.x API (`HealthCheck` dataclass with `run()`)
+- **JSON response keys** are now each check's `repr` (e.g. `Database(alias='default')`)
 
 ### Version 0.3.0
 - **Minimum Python version increased to 3.12** - Required by NetBox 4.5+

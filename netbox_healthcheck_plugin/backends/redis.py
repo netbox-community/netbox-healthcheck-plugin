@@ -6,8 +6,11 @@ dict instead of expecting a REDIS_URL setting. NetBox uses separate HOST, PORT,
 DATABASE, PASSWORD, etc. fields rather than a connection URL.
 """
 
+import dataclasses
+import typing
+
 from django.conf import settings
-from health_check.backends import HealthCheck
+from health_check import HealthCheck
 from health_check.exceptions import ServiceUnavailable
 
 
@@ -68,6 +71,7 @@ def build_redis_url_options(redis_config: dict) -> dict:
     return options
 
 
+@dataclasses.dataclass
 class BaseNetBoxRedisHealthCheck(HealthCheck):
     """
     Base health check backend for Redis that reads from NetBox's REDIS configuration.
@@ -78,10 +82,9 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
     Subclasses should set `redis_config_key` to specify which Redis instance to check.
     """
 
-    redis_config_key: str = 'caching'
+    redis_config_key: typing.ClassVar[str] = 'caching'
 
-    def __init__(self):
-        super().__init__()
+    def __post_init__(self):
         # Build connection parameters from NetBox's REDIS config at instantiation time
         redis_settings = getattr(settings, 'REDIS', {})
         redis_config = redis_settings.get(self.redis_config_key, {})
@@ -100,7 +103,7 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
         self._redis_url = build_redis_url_from_config(redis_config)
         self._redis_url_options = build_redis_url_options(redis_config)
 
-    def check_status(self):
+    def run(self):
         """Check Redis connectivity by issuing a PING command."""
         try:
             import redis
@@ -118,7 +121,10 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
 
         try:
             connection = redis.Redis.from_url(self._redis_url, **self._redis_url_options)
-            connection.ping()
+            try:
+                connection.ping()
+            finally:
+                connection.close()
         except redis.ConnectionError as e:
             raise ServiceUnavailable(f'Redis connection error to {display_url}: {e}') from e
         except Exception as e:
@@ -129,12 +135,14 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
         return f'redis:{self.redis_config_key}'
 
 
+@dataclasses.dataclass(repr=False)
 class NetBoxRedisCacheHealthCheck(BaseNetBoxRedisHealthCheck):
     """Health check for NetBox's caching Redis instance."""
 
     redis_config_key = 'caching'
 
 
+@dataclasses.dataclass(repr=False)
 class NetBoxRedisTasksHealthCheck(BaseNetBoxRedisHealthCheck):
     """Health check for NetBox's tasks/RQ Redis instance."""
 
