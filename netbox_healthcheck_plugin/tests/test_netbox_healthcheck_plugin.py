@@ -3,7 +3,7 @@
 import sys
 from unittest.mock import MagicMock, patch
 
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 
@@ -32,14 +32,81 @@ class TestHealthCheckPlugin(TestCase):
         self.assertIn('netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck', default_checks)
         self.assertIn('netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck', default_checks)
 
-    def test_healthcheck_endpoint_exists(self):
-        """Test that the healthcheck URL is accessible."""
-        client = Client()
-        url = reverse('plugins:netbox_healthcheck_plugin:healthcheck_list')
-        response = client.get(url)
+        self.assertIs(HealthCheckConfig.default_settings['login_required'], True)
 
-        # Should return 200 or redirect (depending on NetBox setup)
-        self.assertIn(response.status_code, [200, 302])
+
+class TestHealthCheckAccess(TestCase):
+    """Test who can reach the healthcheck endpoint."""
+
+    url = reverse('plugins:netbox_healthcheck_plugin:healthcheck_list')
+
+    def setUp(self):
+        from users.models import User
+
+        self.user = User.objects.create_user(username='healthcheck')
+
+    def plugin_config(self, **overrides):
+        from django.conf import settings
+
+        return override_settings(
+            PLUGINS_CONFIG={
+                **settings.PLUGINS_CONFIG,
+                'netbox_healthcheck_plugin': {
+                    **settings.PLUGINS_CONFIG['netbox_healthcheck_plugin'],
+                    **overrides,
+                },
+            }
+        )
+
+    def test_anonymous_redirected_to_login(self):
+        """By default an anonymous request is sent to the login page."""
+        response = Client().get(self.url)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
+
+    def test_session_user_allowed(self):
+        """A logged-in user sees the health check results."""
+        client = Client()
+        client.force_login(self.user)
+        response = client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_api_token_allowed(self):
+        """An API token is accepted, so monitoring can authenticate without a session."""
+        from users.constants import TOKEN_PREFIX
+        from users.models import Token
+
+        token = Token.objects.create(user=self.user)
+        response = Client().get(
+            self.url,
+            {'format': 'json'},
+            HTTP_AUTHORIZATION=f'Bearer {TOKEN_PREFIX}{token.key}.{token.token}',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/json')
+
+    def test_invalid_api_token_forbidden(self):
+        """An invalid API token is rejected rather than redirected."""
+        response = Client().get(self.url, HTTP_AUTHORIZATION='Bearer nbt_invalid.invalid')
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_login_not_required_when_disabled(self):
+        """With login_required off, anonymous requests get the results."""
+        with self.plugin_config(login_required=False):
+            response = Client().get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(LOGIN_REQUIRED=False)
+    def test_follows_netbox_login_required(self):
+        """NetBox's own LOGIN_REQUIRED=False also allows anonymous requests."""
+        response = Client().get(self.url)
+
+        self.assertEqual(response.status_code, 200)
 
 
 class TestHealthCheckConfiguration(TestCase):

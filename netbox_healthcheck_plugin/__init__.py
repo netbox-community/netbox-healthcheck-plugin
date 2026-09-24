@@ -28,12 +28,13 @@ class HealthCheckConfig(PluginConfig):
         'netbox_healthcheck_plugin.backends',
     ]
     default_settings = {
+        'login_required': True,
         'checks': [
             'health_check.Database',
             'health_check.Cache',
             'netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck',
             'netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck',
-        ]
+        ],
     }
 
 
