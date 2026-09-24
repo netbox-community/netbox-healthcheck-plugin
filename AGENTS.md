@@ -72,14 +72,15 @@ The supported range per release is in `COMPATIBILITY.md`.
 ### How a request is served
 
 1. `HealthCheckListView.checks` reads `PLUGINS_CONFIG['netbox_healthcheck_plugin']['checks']`
-   (defaults in `PluginConfig.default_settings`) and maps django-health-check 3.x
-   dotted paths to their 4.x names (`LEGACY_CHECKS`), logging one warning per
-   legacy path.
+   (defaults in `PluginConfig.default_settings`; entries are dotted paths or
+   `(path, {kwargs})` pairs) and maps django-health-check 3.x dotted paths to
+   their 4.x names (`LEGACY_CHECKS`), logging one warning per legacy path.
 2. django-health-check's async `HealthCheckView` instantiates each check and runs
    them concurrently; sync `run()` methods go to an executor thread.
 3. The response format follows `?format=` or the `Accept` header. HTML renders
    `healthcheck.html` with `results` (each has `.check`, `.error`, `.time_taken`).
-   Any failing check returns HTTP 500.
+   Any failing check returns HTTP 500 for HTML, JSON and text; OpenMetrics, RSS
+   and Atom always return 200.
 
 ### Default checks
 
@@ -90,11 +91,15 @@ The supported range per release is in `COMPATIBILITY.md`.
 | `NetBoxRedisCacheHealthCheck` | PING the `REDIS['caching']` instance |
 | `NetBoxRedisTasksHealthCheck` | PING the `REDIS['tasks']` instance |
 
-The Redis checks build a URL from NetBox's `REDIS` dict (HOST, PORT, DATABASE,
-USERNAME, PASSWORD, SSL, INSECURE_SKIP_TLS_VERIFY, CA_CERT_PATH). Credentials are
-URL-encoded, the password is masked in error messages, and a missing `REDIS[key]`
-fails the check rather than silently pinging localhost. Redis Sentinel and the
-`REDIS[...]['URL']` override are not supported.
+The Redis checks do not read `REDIS` themselves: they PING the client NetBox
+builds from it (`django_rq.queues.get_redis_connection(settings.RQ_QUEUES['default'])`
+for tasks, `django_redis.get_redis_connection('default')` for caching), so HOST/PORT,
+URL (incl. Unix sockets), SENTINELS, SSL, CA_CERT_PATH and KWARGS all behave as they
+do in NetBox. The django-redis client shares the cache's pool and must not be closed.
+`repr` (`redis:caching` / `redis:tasks`) is the JSON key and must stay stable;
+host/port/db/path/service go into OpenMetrics `labels`, never credentials. The
+password is scrubbed from error messages, and a client that can't be built fails
+the check rather than silently pinging localhost.
 
 ## Scaffold divergences
 
@@ -159,8 +164,9 @@ Run inside a NetBox checkout with this plugin installed, with
   python netbox/manage.py test netbox_healthcheck_plugin.tests -v 2
   ```
 
-- Redis connections are mocked in the backend unit tests; the endpoint test and
-  `test_default_checks_instantiate` exercise the real configuration.
+- Redis PINGs are mocked in most backend unit tests; the `test_run_against_local_redis`
+  tests, the OpenMetrics test and the endpoint test need the local Redis. Sentinel and
+  Unix-socket configs are tested with `override_settings` (no connection is opened).
 
 ### Reporting test results
 

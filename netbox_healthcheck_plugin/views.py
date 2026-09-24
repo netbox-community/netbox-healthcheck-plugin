@@ -14,6 +14,8 @@ LEGACY_CHECKS = {
     'health_check.contrib.mail.backends.MailHealthCheck': 'health_check.Mail',
     'health_check.storage.backends.StorageHealthCheck': 'health_check.Storage',
     'health_check.storage.backends.DefaultFileStorageHealthCheck': 'health_check.Storage',
+    'health_check.contrib.psutil.backends.DiskUsage': 'health_check.contrib.psutil.Disk',
+    'health_check.contrib.psutil.backends.MemoryUsage': 'health_check.contrib.psutil.Memory',
 }
 
 logger = logging.getLogger('netbox_healthcheck_plugin')
@@ -25,6 +27,9 @@ def _warn_legacy_check(check):
 
 
 def _resolve_legacy_check(check):
+    # A check may be given as a (path, options) pair to pass keyword arguments to it.
+    if isinstance(check, (list, tuple)) and len(check) == 2:
+        return (_resolve_legacy_check(check[0]), check[1])
     if isinstance(check, str) and check in LEGACY_CHECKS:
         _warn_legacy_check(check)
         return LEGACY_CHECKS[check]

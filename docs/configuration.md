@@ -33,11 +33,32 @@ PLUGINS_CONFIG = {
 }
 ```
 
+### Check Options
+
+Each check's settings are passed to it as keyword arguments. To set them, give the check as a `(path, options)` pair instead of a plain path:
+
+```python
+PLUGINS_CONFIG = {
+    "netbox_healthcheck_plugin": {
+        "checks": [
+            "health_check.Database",
+            ("health_check.Database", {"alias": "replica"}),  # a second DATABASES entry
+            "health_check.Cache",
+            "netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck",
+            "netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck",
+            ("health_check.contrib.psutil.Disk", {"path": "/opt/netbox/netbox/media", "max_disk_usage_percent": 85}),
+        ]
+    }
+}
+```
+
+This replaces django-health-check 3.x's global `HEALTH_CHECK` settings dict, which is no longer read. The options each check accepts are listed in the [django-health-check checks reference](https://codingjoe.dev/django-health-check/checks/).
+
 ## Available Health Checks
 
 ### Built-in Checks
 
-These health checks are provided by the [django-health-check](https://github.com/revsys/django-health-check) library:
+These health checks are provided by the [django-health-check](https://github.com/codingjoe/django-health-check) library. `health_check.Database` and `health_check.Cache` are enabled by default; add the others to `checks` as needed.
 
 #### `health_check.Database`
 
@@ -48,6 +69,8 @@ Verifies PostgreSQL database connectivity by performing a simple database query.
 - Database authentication succeeds
 - Basic database operations work
 
+**Options:** `alias` (default `"default"`), for checking another `DATABASES` entry.
+
 #### `health_check.Cache`
 
 Tests Django cache framework operations (set/get) using NetBox's configured cache backend (typically Redis).
@@ -57,27 +80,53 @@ Tests Django cache framework operations (set/get) using NetBox's configured cach
 - Can write to cache
 - Can read from cache
 
+#### `health_check.Storage`
+
+Saves, reads back and deletes a small file in NetBox's default file storage (the media root, or the backend configured in `STORAGES`), where uploaded images and attachments live.
+
+**Options:** `alias` (default `"default"`).
+
+#### `health_check.Mail`
+
+Opens a connection to NetBox's mail server (the `EMAIL` settings) without sending a message. On NetBox 4.7 this reads Django 6.1's `MAILERS` setting.
+
+**Options:** `alias` (default `"default"`), `timeout`.
+
+#### `health_check.DNS`
+
+Resolves a hostname (by default the server's own) through the system's nameservers.
+
+**Options:** `hostname`, `nameservers`, `record_type` (e.g. `"A"` or `"AAAA"`), `timeout`.
+
+#### `health_check.contrib.psutil.Disk` / `health_check.contrib.psutil.Memory`
+
+Fail when disk usage or memory usage crosses a threshold. They need the `psutil` extra:
+
+```bash
+pip install "django-health-check[psutil]"
+```
+
+**Options:** `Disk`: `path`, `max_disk_usage_percent` (default 90). `Memory`: `max_memory_usage_percent` (default 90), `min_gibibytes_available`.
+
 ### Plugin-Provided Checks
 
-These custom health checks are specifically designed for NetBox's Redis configuration:
+These checks PING the two Redis instances in NetBox's `REDIS` setting. They don't read `REDIS` directly. Instead they use the client NetBox builds from it (django-rq's for `tasks`, django-redis's for `caching`), so they connect exactly as NetBox does. That includes `HOST`/`PORT`, `URL` (including Unix sockets), `SENTINELS`, `SSL`, `CA_CERT_PATH` and `KWARGS`.
 
 #### `netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck`
 
 Directly checks the Redis instance used for caching.
 
 **What it checks:**
-- Redis caching instance is accessible
+- Redis caching instance (`REDIS['caching']`) is accessible
 - Can execute Redis PING command
-- Reads configuration from NetBox's `REDIS['caching']` settings
 
 #### `netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck`
 
 Directly checks the Redis instance used for the RQ task queue.
 
 **What it checks:**
-- Redis tasks instance is accessible
+- Redis tasks instance (`REDIS['tasks']`) is accessible
 - Can execute Redis PING command
-- Reads configuration from NetBox's `REDIS['tasks']` settings
 
 ## Adding Custom Health Checks
 
@@ -102,7 +151,7 @@ PLUGINS_CONFIG = {
 
 ## Redis Configuration
 
-The plugin automatically reads Redis configuration from NetBox's settings. No additional configuration is needed.
+The plugin uses NetBox's own `REDIS` configuration. No additional configuration is needed.
 
 ## Monitoring Integration
 
@@ -127,10 +176,25 @@ Response format (keys are each check's `repr`):
 
 A failing check reports its error message in place of `"OK"`. Plain text (`?format=text`), OpenMetrics (`?format=openmetrics`), RSS and Atom formats are also available.
 
+### OpenMetrics (Prometheus)
+
+`?format=openmetrics` (or `Accept: application/openmetrics-text`) returns a `django_health_check_status` gauge and a `django_health_check_response_time_seconds` gauge per check. The Redis checks are labelled with the instance they check, so the two can be told apart:
+
+```text
+django_health_check_status{check="NetBoxRedisCacheHealthCheck",instance="caching",host="redis",port="6379",db="1"} 1
+django_health_check_status{check="NetBoxRedisTasksHealthCheck",instance="tasks",host="redis",port="6379",db="0"} 1
+```
+
+A Unix socket is labelled `path` in place of `host`/`port`, and a Sentinel deployment is labelled `service` (the `SENTINEL_SERVICE`). Credentials are never included.
+
 ### HTTP Status Codes
+
+For the HTML, JSON and plain text formats:
 
 - `200 OK` - All health checks passed
 - `500 Internal Server Error` - One or more health checks failed
+
+The OpenMetrics, RSS and Atom formats always return `200 OK`, because Prometheus and feed readers expect it. Read the check status from the response body instead.
 
 ## Creating Custom Health Checks
 
