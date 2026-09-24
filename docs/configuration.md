@@ -33,6 +33,42 @@ PLUGINS_CONFIG = {
 }
 ```
 
+## Authentication
+
+By default the health check page requires the same login as the rest of NetBox. A request is let through if it comes
+from a logged-in session or carries a NetBox API token, so monitoring tools can authenticate with a token:
+
+```bash
+curl -H "Authorization: Bearer nbt_<key>.<token>" \
+  "https://netbox.example.com/plugins/netbox_healthcheck_plugin/healthcheck/?format=json"
+```
+
+Any user's token works and no particular permission is needed, so a dedicated low-privilege user with a read-only
+token is enough.
+
+Anonymous browser requests (those that prefer `text/html`) are redirected to the login page. Every other anonymous
+request, such as a `?format=` request, curl, or a monitoring probe, gets `401 Unauthorized` rather than a redirect,
+because probes like Kubernetes' treat any 3xx response as healthy. An invalid token gets `403 Forbidden`. If NetBox's own
+`LOGIN_REQUIRED` is `False`, the page is open to everyone, like the rest of NetBox.
+
+Checking the token or session needs the database (and the session store), so while the database is down an
+authenticated request fails with a generic `500` error before any check runs, instead of the usual report of which
+check failed. The request still fails, but without detail.
+
+For load balancer health checks and Kubernetes liveness or readiness probes, set `login_required` to `False` so the
+probe needs no credentials and always gets the full report:
+
+```python
+PLUGINS_CONFIG = {
+    "netbox_healthcheck_plugin": {
+        "login_required": False,
+    }
+}
+```
+
+Failing checks report error messages that can include internal hostnames and ports, so consider limiting who can reach
+the path (for example at your reverse proxy) when login is not required.
+
 ## Available Health Checks
 
 ### Built-in Checks
@@ -108,10 +144,12 @@ The plugin automatically reads Redis configuration from NetBox's settings. No ad
 
 ### JSON Response Format
 
-For programmatic access, request the health check endpoint with `Accept: application/json`:
+For programmatic access, request the health check endpoint with `Accept: application/json` (plus an API token unless
+`login_required` is `False`; see [Authentication](#authentication)):
 
 ```bash
-curl -H "Accept: application/json" https://netbox.example.com/plugins/netbox_healthcheck_plugin/healthcheck/
+curl -H "Accept: application/json" -H "Authorization: Bearer nbt_<key>.<token>" \
+  https://netbox.example.com/plugins/netbox_healthcheck_plugin/healthcheck/
 ```
 
 Response format (keys are each check's `repr`):
