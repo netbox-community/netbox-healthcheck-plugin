@@ -179,6 +179,6 @@ For more details on creating health checks, see the [django-health-check documen
 
 ## Next Steps
 
-- [Installation Guide](installation.md) - Install the plugin
-- [Changelog](changelog.md) - See what's new
-- [Contributing](contributing.md) - Help improve the plugin
+- [Quickstart](quickstart.md) - Install the plugin
+- [Releases](releases.md) - See what's new
+- [Contributing](development/contributing.md) - Help improve the plugin

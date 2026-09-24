@@ -1,4 +1,4 @@
-# Installation
+# Quickstart
 
 This guide covers how to install the NetBox HealthCheck Plugin in various NetBox environments.
 
@@ -134,4 +134,4 @@ For more configuration options, see the [Configuration](configuration.md) guide.
 ## Next Steps
 
 - [Configuration Options](configuration.md) - Customize which health checks run
-- [Contributing](contributing.md) - Help improve the plugin
+- [Contributing](development/contributing.md) - Help improve the plugin

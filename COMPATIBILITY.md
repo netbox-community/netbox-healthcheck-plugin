@@ -1,18 +1,17 @@
-# Compatibility Matrix
+# Compatibility
 
-This document tracks the compatibility between NetBox HealthCheck Plugin releases and NetBox versions.
+This document tracks the supported NetBox and Python versions for each
+release of NetBox HealthCheck Plugin.
 
-## Version Compatibility
-
-| Release | Minimum NetBox Version | Maximum NetBox Version | Python Version       |
-|---------|------------------------|------------------------|----------------------|
-| 0.4.0   | 4.5.0                  | 4.99.99                | 3.12, 3.13, 3.14     |
-| 0.3.0   | 4.5.0                  | 4.6.x                  | 3.12, 3.13, 3.14     |
-| 0.2.0   | 4.0.0                  | 4.4.x                  | 3.10, 3.11, 3.12     |
-| 0.1.4   | 3.4.0                  | 3.7.x                  | 3.10, 3.11, 3.12     |
-| 0.1.3   | 3.4.0                  | 3.7.x                  | 3.10, 3.11, 3.12     |
-| 0.1.2   | 3.4.0                  | 3.7.x                  | 3.10, 3.11, 3.12     |
-| 0.1.0   | 3.4.0                  | 3.7.x                  | 3.10, 3.11, 3.12     |
+| Plugin Version | Minimum NetBox Version | Maximum NetBox Version | Minimum Python |
+|----------------|------------------------|------------------------|----------------|
+| 0.4.0 | 4.5.0 | 4.7.99 | 3.12 |
+| 0.3.0 | 4.5.0 | 4.6.x | 3.12 |
+| 0.2.0 | 4.0.0 | 4.4.x | 3.10 |
+| 0.1.4 | 3.4.0 | 3.7.x | 3.10 |
+| 0.1.3 | 3.4.0 | 3.7.x | 3.10 |
+| 0.1.2 | 3.4.0 | 3.7.x | 3.10 |
+| 0.1.0 | 3.4.0 | 3.7.x | 3.10 |
 
 ## Breaking Changes
 
@@ -20,6 +19,7 @@ This document tracks the compatibility between NetBox HealthCheck Plugin release
 - **django-health-check >= 4.6 required** - Fixes startup failure on NetBox 4.7+ (Django 6.1)
 - **Custom health checks** must use the django-health-check 4.x API (`HealthCheck` dataclass with `run()`)
 - **JSON response keys** are now each check's `repr` (e.g. `Database(alias='default')`)
+- **Maximum NetBox version declared** - `max_version = '4.7.99'`; NetBox refuses to load the plugin on newer releases until a release raises the ceiling
 
 ### Version 0.3.0
 - **Minimum Python version increased to 3.12** - Required by NetBox 4.5+
@@ -37,16 +37,24 @@ This document tracks the compatibility between NetBox HealthCheck Plugin release
 
 ## Notes
 
-- The plugin follows semantic versioning
-- Each minor version (0.x.0) may introduce breaking changes
-- Patch versions (0.x.y) are backwards compatible within the same minor version
-- Always review the CHANGELOG.md before upgrading
+| Note | Action |
+|---|---|
+| NetBox upgrade | Test against the target NetBox version before production rollout. |
+| Upstream changes | Review the [NetBox release notes](https://docs.netbox.dev/en/stable/release-notes/). |
+| Support range change | Add a matrix row and update `PluginConfig.min_version` / `max_version`. |
 
-## Testing
+## Upgrading
 
-Each release is tested against:
-- Multiple Python versions (as shown in the table above)
-- Target NetBox versions specified in the compatibility range
-- Redis 7.x and PostgreSQL 12+
+When upgrading either NetBox or this plugin:
 
-For the most up-to-date compatibility information, see the [README.md](README.md) file.
+1. Review the matrix above for the target combination.
+2. Back up the NetBox database.
+3. Install the new release of the plugin alongside (or after) the new NetBox release.
+4. Apply database migrations:
+   ```bash
+   python manage.py migrate
+   ```
+5. Clear the cache:
+   ```bash
+   python manage.py clearcache
+   ```

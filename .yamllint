@@ -1,0 +1,20 @@
+---
+# The scaffold ships the yamllint pre-commit hook but renders no config for
+# generated plugins, so this is adapted from the scaffold's own root config.
+
+extends: default
+
+rules:
+  line-length:
+    max: 120
+    level: warning
+  truthy:
+    check-keys: false
+  document-start: disable
+  comments:
+    min-spaces-from-content: 1
+
+ignore: |
+  .git/
+  site/
+  .cache/

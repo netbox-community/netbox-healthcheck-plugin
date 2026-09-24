@@ -1,0 +1,11 @@
+<!--
+    Thank you for your interest in contributing to NetBox HealthCheck Plugin! Pull
+    requests are accepted ONLY for approved, assigned issues. Specify the
+    issue resolved by this PR on the line below; PRs that do not reference
+    an assigned issue will be closed automatically.
+-->
+### Fixes: #1234
+
+<!--
+    Please include a summary of the proposed changes below.
+-->

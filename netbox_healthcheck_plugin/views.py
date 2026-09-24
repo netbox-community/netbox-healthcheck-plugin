@@ -2,6 +2,7 @@ import functools
 import logging
 
 from health_check.views import HealthCheckView
+
 from netbox.plugins import get_plugin_config
 
 # Check paths from django-health-check 3.x mapped to their 4.x equivalents, so existing

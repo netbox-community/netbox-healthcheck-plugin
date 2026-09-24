@@ -1,6 +1,6 @@
 ###################################################################
-#  This file serves as a base configuration for testing purposes #
-#  only. It is not intended for production use.                  #
+#  This file serves as a base configuration for testing purposes  #
+#  only. It is not intended for production use.                   #
 ###################################################################
 
 ALLOWED_HOSTS = ['*']
@@ -17,10 +17,6 @@ DATABASE = {
 PLUGINS = [
     'netbox_healthcheck_plugin',
 ]
-
-PLUGINS_CONFIG = {
-    'netbox_healthcheck_plugin': {},
-}
 
 REDIS = {
     'tasks': {
@@ -44,3 +40,7 @@ SECRET_KEY = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 API_TOKEN_PEPPERS = {
     1: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
 }
+
+# NetBox's manage.py makemigrations refuses to run in non-developer setups.
+# This testing config is dev/test only; safe to enable unconditionally.
+DEVELOPER = True

@@ -1,52 +1,51 @@
-site_name: NetBox HealthCheck Plugin
-site_url: https://netbox-community.github.io/netbox-healthcheck-plugin
-repo_name: netbox-community/netbox-healthcheck-plugin
+site_name: "NetBox HealthCheck Plugin"
+site_description: "NetBox plugin for HealthCheck."
 repo_url: https://github.com/netbox-community/netbox-healthcheck-plugin
+repo_name: "netbox-community/netbox-healthcheck-plugin"
+site_url: https://netbox-community.github.io/netbox-healthcheck-plugin
 strict: true
 
 theme:
   name: material
-  icon:
-    repo: fontawesome/brands/github
   features:
     - content.code.copy
-    - navigation.footer
-    - navigation.instant
+    - navigation.top
+    - navigation.tracking
   palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
+    - scheme: default
+      primary: blue
       toggle:
-        icon: material/lightbulb-outline
-        name: Switch to Dark Mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
       toggle:
-        icon: material/lightbulb
-        name: Switch to Light Mode
+        icon: material/weather-sunny
+        name: Switch to light mode
 
 plugins:
-  - search:
-      lang: en
+  - search
 
 markdown_extensions:
   - admonition
   - attr_list
   - footnotes
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
-  - pymdownx.highlight:
-      anchor_linenums: true
-  - pymdownx.inlinehilite
-  - pymdownx.superfences
+  - pymdownx.emoji
+  - pymdownx.snippets:
+      base_path: ['.']
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
   - pymdownx.tabbed:
       alternate_style: true
-  - toc:
-      permalink: true
 
 nav:
   - Home: index.md
-  - Installation: installation.md
+  - Quickstart: quickstart.md
   - Configuration: configuration.md
-  - Contributing: contributing.md
-  - Changelog: changelog.md
+  - Releases: releases.md
+  - Development:
+      - Contributing: development/contributing.md
+      - Releasing: development/releasing.md

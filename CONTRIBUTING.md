@@ -1,123 +1,246 @@
-# Contributing
+# Contributing to NetBox HealthCheck Plugin
 
-Contributions are welcome, and they are greatly appreciated! Every little bit
-helps, and credit will always be given.
+First off, thanks for taking the time to contribute to **NetBox HealthCheck Plugin**.
+Contributions of all kinds are welcome. Please be kind, constructive, and
+respectful in issues, PRs, and discussions.
 
-We love your input! We want to make contributing to this project as easy and transparent as possible, whether it's:
+---
 
-- Reporting a bug
-- Discussing the current state of the code
-- Submitting a fix
-- Proposing new features
-- Becoming a maintainer
+## General tips for working on GitHub
 
-## General Tips for Working on GitHub
+- Register for a free [GitHub account](https://github.com/signup) if you
+  haven't already.
+- You can use [GitHub Markdown](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax)
+  for formatting text and adding images.
+- To help mitigate notification spam, please avoid "bumping" issues with
+  no activity. To vote an issue up or down, use thumbs-up / thumbs-down
+  reactions.
+- Please avoid pinging members with `@` unless they have previously
+  expressed interest or involvement with that particular issue.
+- Familiarize yourself with this list of
+  [discussion anti-patterns](https://github.com/bradfitz/issue-tracker-behaviors)
+  and make every effort to avoid them.
 
-* Register for a free [GitHub account](https://github.com/signup) if you haven't already.
-* You can use [GitHub Markdown](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax) for formatting text and adding images.
-* To help mitigate notification spam, please avoid "bumping" issues with no activity. (To vote an issue up or down, use a :thumbsup: or :thumbsdown: reaction.)
-* Please avoid pinging members with `@` unless they've previously expressed interest or involvement with that particular issue.
-* Familiarize yourself with [this list of discussion anti-patterns](https://github.com/bradfitz/issue-tracker-behaviors) and make every effort to avoid them.
+---
 
-## Types of Contributions
+## How we work: issue-first, then assignment, then PR
 
-### Report Bugs
+To avoid wasted effort and keep the project coherent, we follow an
+**issue-first** workflow:
 
-Report bugs at https://github.com/netbox-community/netbox-healthcheck-plugin/issues.
+1. **Open an issue** (bug report or feature request) first.
+2. A maintainer **triages** it. If it is viable, we mark it as
+   **status: accepted** and (optionally) **status: needs owner**.
+3. The issue's author or another volunteer can **offer to own it** by
+   commenting.
+4. A maintainer **assigns** the issue to the owner.
+5. The owner opens a **pull request** that resolves the issue.
 
-If you are reporting a bug, please include:
+**Please do not open PRs without an accepted, assigned issue.** Unassigned
+PRs may be closed to keep the queue focused. Draft PRs are welcome **after**
+an issue is accepted and assigned.
 
-* Your operating system name and version.
-* Any details about your local setup that might be helpful in troubleshooting.
-* Detailed steps to reproduce the bug.
+> For background, see the NetBox contributing guide:
+> <https://github.com/netbox-community/netbox/blob/main/CONTRIBUTING.md>
 
-### Fix Bugs
+---
 
-Look through the GitHub issues for bugs. Anything tagged with "bug" and "help
-wanted" is open to whoever wants to implement it.
+## Types of contributions
 
-### Implement Features
+- **Report bugs.** See [Reporting bugs](#reporting-bugs).
+- **Implement features.** See [Requesting features](#requesting-features).
+  For issues tagged `help wanted`, comment to volunteer; a maintainer must
+  assign the issue before work begins.
+- **Fix bugs.** Look for issues tagged `type: bug` and `help wanted` (same
+  assignment note as above).
+- **Write documentation.** Improve the docs site, README, in-code
+  docstrings, or tutorials.
+- **Submit feedback.** See [Requesting features](#requesting-features) for
+  the suggested structure.
 
-Look through the GitHub issues for features. Anything tagged with "enhancement"
-and "help wanted" is open to whoever wants to implement it.
+---
 
-### Write Documentation
+## Reporting bugs
 
-NetBox HealthCheck Plugin could always use more documentation, whether as part of the
-official NetBox HealthCheck Plugin docs, in docstrings, or even on the web in blog posts,
-articles, and such.
+Open an issue and pick the **Bug report** template. Please include:
 
-### Submit Feedback
+- **NetBox version** and **plugin version**.
+- **Steps to reproduce** (clear and minimal).
+- **Expected vs. actual behavior**.
+- Any **stack traces, logs, or screenshots**.
 
-The best way to send feedback is to file an issue at https://github.com/netbox-community/netbox-healthcheck-plugin/issues.
+Bug reports are for unintended behavior only; new functionality belongs in
+a **feature request**.
 
-If you are proposing a feature:
+---
 
-* Explain in detail how it would work.
-* Keep the scope as narrow as possible, to make it easier to implement.
-* Remember that this is a volunteer-driven project, and that contributions
-  are welcome :)
+## Requesting features
 
-## Get Started!
+When proposing features, please provide:
 
-Ready to contribute? Here's how to set up `netbox-healthcheck-plugin` for local development.
+- **Problem / use case** (why this matters for plugin users).
+- **Proposed behavior** (what changes, at a high level).
+- Any anticipated **models / UI / API** impacts.
+- **Alternatives** you considered.
 
-1. Fork the `netbox-healthcheck-plugin` repo on GitHub.
-2. Clone your fork locally
+We may ask questions to refine the scope before acceptance.
 
-    ```
-    $ git clone git@github.com:your_name_here/netbox-healthcheck-plugin.git
-    ```
+---
 
-3. Activate the NetBox virtual environment (see the NetBox documentation under [Setting up a Development Environment](https://docs.netbox.dev/en/stable/development/getting-started/)):
+## Development environment
 
-    ```
-    $ source ~/.venv/netbox/bin/activate
-    ```
+This plugin targets the NetBox ecosystem (Django). You will need a working
+NetBox development environment.
 
-4. Install the plugin in development mode:
+**Prerequisites:**
 
-    Install the plugin in editable mode with development dependencies:
+- Python 3.12 or newer.
+- PostgreSQL and Redis (NetBox runtime requirements).
+- A local NetBox checkout. Clone
+  <https://github.com/netbox-community/netbox> next to this plugin so the
+  layout looks like:
 
-    ```
-    $ pip install -e ".[test,docs]"
-    ```
+  ```text
+  workspace/
+    netbox/                        # NetBox core checkout
+    netbox-healthcheck-plugin/   # this plugin
+  ```
 
-    This creates symbolic links within your Python environment to the plugin development directory.
+- [`uv`](https://docs.astral.sh/uv/) for managing tool installs (optional
+  but recommended; the scaffold uses `uv` for `copier`, `pre-commit`, and
+  `ruff`).
 
-5. Create a branch for local development:
+**Setup:**
 
-    ```
-    $ git checkout -b name-of-your-bugfix-or-feature
-    ```
+1. **Clone this repository** and create or activate a virtual environment.
 
-    Now you can make your changes locally.
+2. **Install the plugin in editable mode** from the repo root, including
+   the `test` extra so test dependencies are available:
 
-6. Commit your changes and push your branch to GitHub:
+   ```bash
+   pip install -e '.[test]'
+   ```
 
-    ```
-    $ git add .
-    $ git commit -m "Your detailed description of your changes."
-    $ git push origin name-of-your-bugfix-or-feature
-    ```
+3. **Install pre-commit hooks** so lint runs locally on every commit:
 
-7. Submit a pull request through the GitHub website.
+   ```bash
+   pip install pre-commit
+   pre-commit install
+   pre-commit run --all-files
+   ```
 
-## Pull Request Guidelines
+4. **Run the test suite.** This plugin ships a `testing/configuration.py`
+   for NetBox to load when running tests. Loading happens via the
+   `NETBOX_CONFIGURATION` environment variable plus a prepended
+   `PYTHONPATH`, never via a symlink into NetBox:
 
-Before you submit a pull request, check that it meets these guidelines:
+   ```bash
+   export NETBOX_CONFIGURATION=configuration
+   export PYTHONPATH=$PWD/testing:$PYTHONPATH
+   python ../netbox/netbox/manage.py test netbox_healthcheck_plugin -v 2
+   ```
 
-1. The pull request should include tests.
-2. If the pull request adds functionality, the docs should be updated. Put
-   your new functionality into a function with a docstring, and add the
-   feature to the list in README.md.
-3. The pull request should work for Python 3.12, 3.13 and 3.14. Check
-   https://github.com/netbox-community/netbox-healthcheck-plugin/actions
-   and make sure that the tests pass for all supported Python versions.
+5. **Run NetBox** and verify the plugin loads and behaves as expected.
 
+See `AGENTS.md` for the full development recipe, including migration
+handling and the `DEVELOPER = True` flag in `testing/configuration.py`.
 
-## Deploying
+### Database migrations (Django)
 
-A reminder for the maintainers on how to deploy.
-Make sure all your changes are committed (including an entry in CHANGELOG.md) and that all tests pass.
-Then in the github project go to `Releases` and create a new release with a new tag.  This will automatically upload the release to pypi:
+- Include **one logical migration per PR** for model changes.
+- Prefer **backward-compatible** changes; avoid destructive operations in
+  the same release (deprecate first when possible).
+- Use `RunPython` or `RunSQL` for **data migrations**; keep them
+  idempotent and fast.
+- Avoid surprising nullability or index changes on large tables without
+  discussion.
+
+### API and UI compatibility
+
+- Avoid breaking API fields, choices, or slugs without prior deprecation.
+- Keep UI patterns consistent with NetBox (tables, filtersets, views).
+
+---
+
+## Style, linting, and versions
+
+- **Python style:** PEP 8 where practical; readability over rigid line
+  limits. Ruff handles enforcement.
+- **Linters and formatters:** We use **Ruff** via **pre-commit**. Run
+  `pre-commit run --all-files` locally before pushing.
+- **Supported Python:** Keep changes compatible with the versions tested
+  in CI (currently 3.12, 3.13, 3.14).
+- **Supported NetBox:** 4.5.0 to 4.7.99
+  (matches the `PluginConfig` declaration in
+  `netbox_healthcheck_plugin/__init__.py`).
+- **Django:** 5.2 (matches the supported NetBox runtime).
+- **Typing:** Prefer adding or improving type hints where it increases
+  clarity.
+
+---
+
+## Pull request guidelines
+
+A PR is reviewed only if:
+
+- It **links to an accepted, assigned issue** with `Fixes: #NNN` in the
+  PR description.
+- It **adds tests** where applicable.
+- It **updates docs** for user-facing changes.
+- **pre-commit** passes locally.
+- It **does not** bump versions or edit the changelog. Maintainers
+  handle release bookkeeping (see
+  [`docs/development/releasing.md`](https://github.com/netbox-community/netbox-healthcheck-plugin/blob/main/docs/development/releasing.md)).
+- **PR title and commits follow Conventional Commits.**
+
+### Branching and commits
+
+- Use clear, focused branches like `fix-<short-description>` or
+  `feat-<short-description>`.
+- **Conventional Commits are mandatory.** Examples:
+  - `feat(models): add new model for X`
+  - `fix(filters): correct filter coercion for Y`
+  - `docs: add quickstart for enabling the plugin`
+  - `refactor: split utils into modules`
+  - Include a body when necessary; use a `BREAKING CHANGE:` footer if the
+    change is not backward-compatible.
+- Keep PRs small and focused. Large refactors should be discussed first
+  in an issue.
+
+### Target branch
+
+- Open PRs against the default branch unless a maintainer specifies
+  otherwise.
+
+---
+
+## Documentation
+
+- Update README or in-repo docs when behavior changes.
+- Include short examples or screenshots for UI-adjacent changes.
+- Keep docstrings current for public methods, models, and utilities.
+- Build the docs locally with `mkdocs build --strict` before submitting
+  documentation changes.
+
+---
+
+## Security
+
+Please do **not** open a public issue for security problems. Follow our
+[`SECURITY.md`](https://github.com/netbox-community/netbox-healthcheck-plugin/blob/main/SECURITY.md). If in doubt, contact a maintainer privately
+and we will coordinate a fix and disclosure.
+
+---
+
+## Releasing (maintainers)
+
+See [`docs/development/releasing.md`](https://github.com/netbox-community/netbox-healthcheck-plugin/blob/main/docs/development/releasing.md) for
+the full release checklist.
+
+---
+
+## Thanks!
+
+Whether you are filing a precise bug report, improving docs, or
+implementing new functionality, thank you. Your time and effort are
+appreciated.
