@@ -8,7 +8,7 @@ A [NetBox](https://github.com/netbox-community/netbox) plugin that provides comp
 
 ## Overview
 
-This plugin integrates [django-health-check](https://github.com/revsys/django-health-check) with NetBox to provide health monitoring of critical services:
+This plugin integrates [django-health-check](https://github.com/codingjoe/django-health-check) with NetBox to provide health monitoring of critical services:
 
 - **Database** - PostgreSQL connectivity and operations
 - **Cache** - Django cache framework (Redis-backed)

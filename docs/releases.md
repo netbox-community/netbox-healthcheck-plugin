@@ -9,7 +9,14 @@ Released 2026-09-24.
 * Default cache check is now `health_check.Cache`; `health_check.cache.backends.CacheBackend` and other 3.x check paths in `PLUGINS_CONFIG['checks']` are still accepted but log a deprecation warning
 * Custom health checks must use the django-health-check 4.x API (`HealthCheck` dataclass with `run()`)
 * JSON response keys are now each check's `repr` (e.g. `Database(alias='default')`) with `"OK"` or the error message as the value
-* Redis health checks now report unavailable when `REDIS['caching']` or `REDIS['tasks']` is missing, instead of warning and falling back to `localhost:6379`
+* Redis health checks now PING the client NetBox itself builds (django-rq's for `tasks`, django-redis's for `caching`) instead of building their own URL from `REDIS`; they report unavailable, instead of falling back to `localhost:6379`, when that client can't be configured. The `build_redis_url_from_config()` and `build_redis_url_options()` helpers were removed
+
+### Enhancements
+* Redis health checks support every connection option NetBox does: Redis Sentinel (`SENTINELS` / `SENTINEL_SERVICE`), `URL` (including Unix sockets) and `KWARGS`
+* Redis health checks add `instance`, `host`, `port` and `db` labels (`path` for Unix sockets, `service` for Sentinel) to the OpenMetrics output
+* Checks accept options as `(path, {options})` pairs in `PLUGINS_CONFIG['checks']`, replacing django-health-check 3.x's `HEALTH_CHECK` settings ([#12](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/12))
+* The django-health-check 3.x psutil paths (`health_check.contrib.psutil.backends.DiskUsage` / `MemoryUsage`) map to `health_check.contrib.psutil.Disk` / `Memory`, and 3.x paths are also remapped inside `(path, options)` pairs
+* Document the Storage, Mail, DNS and psutil checks, OpenMetrics labels, and the always-200 status of the OpenMetrics and feed formats
 
 ### Bug Fixes
 * URL-encode the Redis username and password so special characters (including `/`) no longer break the connection ([#20](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/20) by [@tacerus](https://github.com/tacerus), [#21](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/21) by [@RangerRick](https://github.com/RangerRick))

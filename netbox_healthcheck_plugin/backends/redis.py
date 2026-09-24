@@ -1,166 +1,144 @@
 """
-Redis health check backend for NetBox.
+Redis health check backends for NetBox.
 
-This backend reads Redis connection settings from NetBox's REDIS configuration
-dict instead of expecting a REDIS_URL setting. NetBox uses separate HOST, PORT,
-DATABASE, PASSWORD, etc. fields rather than a connection URL.
+NetBox turns its REDIS configuration into two client configurations: the tasks
+instance becomes django-rq's RQ_QUEUES and the caching instance becomes
+django-redis's CACHES['default']. Rather than re-deriving a connection from
+settings.REDIS, these checks ping the client those libraries build, so every
+connection option NetBox supports (HOST/PORT, URL including Unix sockets,
+SENTINELS, SSL, CA_CERT_PATH, KWARGS) is checked exactly as NetBox uses it.
 """
 
 import dataclasses
+import functools
+import logging
 import typing
-from contextlib import closing
-from urllib.parse import quote
 
+import redis
 from django.conf import settings
 from health_check import HealthCheck
 from health_check.exceptions import ServiceUnavailable
 
+from netbox.constants import RQ_QUEUE_DEFAULT
 
-def build_redis_url_from_config(redis_config: dict) -> str:
-    """
-    Build a Redis URL from NetBox's REDIS configuration dict.
+logger = logging.getLogger('netbox_healthcheck_plugin')
 
-    Args:
-        redis_config: Dict with HOST, PORT, DATABASE, PASSWORD, USERNAME, SSL keys
-
-    Returns:
-        Redis URL string (e.g., "redis://host:6379/0" or "rediss://user:pass@host:6379/0")
-
-    Note:
-        If HOST, PORT, or DATABASE are not specified, defaults to localhost:6379/0.
-        This is intentional to match django-redis's default behavior.
-    """
-    host = redis_config.get('HOST', 'localhost')
-    port = redis_config.get('PORT', 6379)
-    database = redis_config.get('DATABASE', 0)
-    password = quote(redis_config.get('PASSWORD') or '', safe='')
-    username = quote(redis_config.get('USERNAME') or '', safe='')
-    use_ssl = redis_config.get('SSL', False)
-
-    scheme = 'rediss' if use_ssl else 'redis'
-
-    auth = ''
-    if password:
-        auth = f'{username}:{password}@' if username else f':{password}@'
-    elif username:
-        auth = f'{username}@'
-
-    return f'{scheme}://{auth}{host}:{port}/{database}'
-
-
-def build_redis_url_options(redis_config: dict) -> dict:
-    """
-    Build Redis connection options for SSL/TLS from NetBox's REDIS configuration.
-
-    Args:
-        redis_config: Dict with SSL, INSECURE_SKIP_TLS_VERIFY, CA_CERT_PATH keys
-
-    Returns:
-        Dict of redis-py connection options for SSL/TLS
-    """
-    options = {}
-    use_ssl = redis_config.get('SSL', False)
-
-    if use_ssl:
-        import ssl
-
-        if redis_config.get('INSECURE_SKIP_TLS_VERIFY', False):
-            options['ssl_cert_reqs'] = ssl.CERT_NONE
-        ca_cert = redis_config.get('CA_CERT_PATH', '')
-        if ca_cert:
-            options['ssl_ca_certs'] = ca_cert
-
-    return options
+# Connection pool kwargs that identify an instance; exposed as OpenMetrics labels.
+# Never add 'password' or 'username' here.
+LABEL_KWARGS = ('host', 'port', 'path', 'db')
 
 
 @dataclasses.dataclass
 class BaseNetBoxRedisHealthCheck(HealthCheck):
     """
-    Base health check backend for Redis that reads from NetBox's REDIS configuration.
+    Base health check that PINGs one of NetBox's Redis instances.
 
-    NetBox stores Redis configuration in settings.REDIS as a dict with 'caching'
-    and 'tasks' keys, each containing HOST, PORT, DATABASE, PASSWORD, etc.
-
-    Subclasses should set `redis_config_key` to specify which Redis instance to check.
+    Subclasses set `redis_config_key` and implement `get_connection()`. Set
+    `close_connection` to False when the client comes from a shared pool that
+    must stay open.
     """
 
-    redis_config_key: typing.ClassVar[str] = 'caching'
+    redis_config_key: typing.ClassVar[str]
+    close_connection: typing.ClassVar[bool] = True
 
-    def __post_init__(self):
-        """Read and validate the NetBox Redis config at instantiation time.
+    def get_connection(self) -> redis.Redis:
+        """Return the Redis client NetBox uses for this instance."""
+        raise NotImplementedError
 
-        If the expected key is missing from settings.REDIS we record the error
-        here and surface it from run(); we deliberately do NOT fall back to
-        localhost defaults, because that would let a misconfigured deployment
-        silently report healthy by pinging a different Redis (or nothing at all).
-        """
-        redis_settings = getattr(settings, 'REDIS', {})
-        redis_config = redis_settings.get(self.redis_config_key, {})
+    @functools.cached_property
+    def _connection(self) -> redis.Redis:
+        return self.get_connection()
 
-        if not redis_config:
-            self._config_error: str | None = (
-                f"No Redis configuration found for '{self.redis_config_key}' in settings.REDIS"
-            )
-            self._redis_url = ''
-            self._display_url = ''
-            self._redis_url_options: dict = {}
-            return
+    @property
+    def _connection_kwargs(self) -> dict:
+        return self._connection.connection_pool.connection_kwargs
 
-        self._config_error = None
-        self._redis_url = build_redis_url_from_config(redis_config)
-        # Precompute a password-masked URL for error messages by rebuilding from a
-        # config with the password replaced. Rebuilding (rather than parsing the
-        # real URL) avoids edge cases with username-only URLs where the scheme's
-        # colon gets misinterpreted as an auth separator.
-        if redis_config.get('PASSWORD'):
-            # Use an alphanumeric mask so url-encoding leaves it intact.
-            masked_config = dict(redis_config, PASSWORD='REDACTED')
-            self._display_url = build_redis_url_from_config(masked_config)
-        else:
-            self._display_url = self._redis_url
-        self._redis_url_options = build_redis_url_options(redis_config)
+    def _target(self) -> str:
+        """Describe the instance being checked, without credentials."""
+        pool = self._connection.connection_pool
+        if service_name := getattr(pool, 'service_name', None):
+            return f'sentinel service {service_name!r}'
+        kwargs = pool.connection_kwargs
+        if path := kwargs.get('path'):
+            return f'unix://{path}'
+        return f'{kwargs.get("host")}:{kwargs.get("port")}/{kwargs.get("db", 0)}'
+
+    def _scrub(self, message: str) -> str:
+        """Strip the Redis password from a message, in case an exception echoes it back."""
+        if password := self._connection_kwargs.get('password'):
+            message = message.replace(password, 'REDACTED')
+        return message
 
     def run(self):
         """Check Redis connectivity by issuing a PING command."""
-        if self._config_error:
-            raise ServiceUnavailable(self._config_error)
+        try:
+            connection = self._connection
+        except Exception as e:
+            # Log the details for operators; the page only shows the exception type, since
+            # connection settings may carry credentials.
+            logger.exception("Unable to configure the '%s' Redis client", self.redis_config_key)
+            raise ServiceUnavailable(
+                f"Unable to configure the '{self.redis_config_key}' Redis client ({type(e).__name__})"
+            ) from None
 
         try:
-            import redis
-        except ImportError as e:
-            raise ServiceUnavailable('redis library not installed') from e
+            connection.ping()
+        except redis.ConnectionError as e:
+            raise ServiceUnavailable(f'Redis connection error to {self._target()}: {self._scrub(str(e))}') from None
+        except redis.RedisError as e:
+            raise ServiceUnavailable(
+                f'Redis error ({type(e).__name__}) for {self._target()}: {self._scrub(str(e))}'
+            ) from None
+        finally:
+            if self.close_connection:
+                connection.close()
 
-        def _safe_msg(exc: Exception) -> str:
-            """Strip the real URL (which contains the password) from the error message."""
-            return str(exc).replace(self._redis_url, self._display_url)
-
-        with closing(redis.Redis.from_url(self._redis_url, **self._redis_url_options)) as connection:
-            try:
-                connection.ping()
-            except redis.ConnectionError as e:
-                raise ServiceUnavailable(f'Redis connection error to {self._display_url}: {_safe_msg(e)}') from None
-            except redis.RedisError as e:
-                raise ServiceUnavailable(
-                    f'Redis error ({type(e).__name__}) for {self._display_url}: {_safe_msg(e)}'
-                ) from None
+    @property
+    def labels(self) -> dict[str, str]:
+        """Add the instance's host, port, db (or socket path, or Sentinel service) to the labels."""
+        labels = super().labels | {'instance': self.redis_config_key}
+        try:
+            pool = self._connection.connection_pool
+        except Exception:
+            return labels
+        keys = LABEL_KWARGS
+        if service_name := getattr(pool, 'service_name', None):
+            # Sentinel resolves the master at connect time; django-redis leaves the service
+            # name in 'host', so only the service and db identify the instance.
+            labels['service'] = str(service_name)
+            keys = ('db',)
+        labels |= {key: str(value) for key in keys if (value := pool.connection_kwargs.get(key)) is not None}
+        return labels
 
     def __repr__(self):
-        """Return a unique identifier for this health check."""
+        """Return a stable identifier for this health check (used as the JSON key)."""
         return f'redis:{self.redis_config_key}'
 
 
 @dataclasses.dataclass(repr=False)
 class NetBoxRedisCacheHealthCheck(BaseNetBoxRedisHealthCheck):
-    """Health check for NetBox's caching Redis instance."""
+    """Health check for NetBox's caching Redis instance (REDIS['caching'])."""
 
     redis_config_key = 'caching'
+    # django-redis hands out a client backed by the cache's shared connection pool.
+    close_connection = False
+
+    def get_connection(self) -> redis.Redis:
+        from django_redis import get_redis_connection
+
+        return get_redis_connection('default')
 
 
 @dataclasses.dataclass(repr=False)
 class NetBoxRedisTasksHealthCheck(BaseNetBoxRedisHealthCheck):
-    """Health check for NetBox's tasks/RQ Redis instance."""
+    """Health check for NetBox's tasks/RQ Redis instance (REDIS['tasks'])."""
 
     redis_config_key = 'tasks'
+
+    def get_connection(self) -> redis.Redis:
+        from django_rq.queues import get_redis_connection
+
+        return get_redis_connection(settings.RQ_QUEUES[RQ_QUEUE_DEFAULT])
 
 
 # Backwards compatibility alias
