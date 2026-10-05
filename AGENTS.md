@@ -75,6 +75,8 @@ The supported range per release is in `COMPATIBILITY.md`.
    (defaults in `PluginConfig.default_settings`; entries are dotted paths or
    `(path, {kwargs})` pairs) and maps django-health-check 3.x dotted paths to
    their 4.x names (`LEGACY_CHECKS`), logging one warning per legacy path.
+   `HealthCheckConfig.ready()` validates these entries at startup (`validate_checks`)
+   and warns if django-health-check 3.x's `HEALTH_CHECK` setting is still set.
 2. django-health-check's async `HealthCheckView` instantiates each check and runs
    them concurrently; sync `run()` methods go to an executor thread.
 3. The response format follows `?format=` or the `Accept` header. HTML renders
@@ -97,9 +99,12 @@ for tasks, `django_redis.get_redis_connection('default')` for caching), so HOST/
 URL (incl. Unix sockets), SENTINELS, SSL, CA_CERT_PATH and KWARGS all behave as they
 do in NetBox. The django-redis client shares the cache's pool and must not be closed.
 `repr` (`redis:caching` / `redis:tasks`) is the JSON key and must stay stable;
-host/port/db/path/service go into OpenMetrics `labels`, never credentials. The
-password is scrubbed from error messages, and a client that can't be built fails
-the check rather than silently pinging localhost.
+`redis_instance` (not `instance`, which Prometheus reserves) and host/port/db/path/service
+go into OpenMetrics `labels`, never credentials; if the client can't be built, the
+labels fall back to `settings.REDIS` so the series doesn't change. Error messages
+show only the exception type and target, never the exception text (it may echo
+credentials); details go to the log. A client that can't be built fails the check
+rather than silently pinging localhost.
 
 ## Scaffold divergences
 

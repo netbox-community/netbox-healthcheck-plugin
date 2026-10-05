@@ -52,7 +52,16 @@ PLUGINS_CONFIG = {
 }
 ```
 
-This replaces django-health-check 3.x's global `HEALTH_CHECK` settings dict, which is no longer read. The options each check accepts are listed in the [django-health-check checks reference](https://codingjoe.dev/django-health-check/checks/).
+This replaces django-health-check 3.x's global `HEALTH_CHECK` settings dict, which is no longer read; NetBox logs a warning at startup if it is still set. The options each check accepts are listed in the [django-health-check checks reference](https://codingjoe.dev/django-health-check/checks/).
+
+When upgrading from 3.x, move any `HEALTH_CHECK` thresholds into check options. Without them the psutil checks use their defaults (fail at 90% disk or memory used):
+
+| 3.x `HEALTH_CHECK` key | 4.x check option |
+|---|---|
+| `DISK_USAGE_MAX` (percent used) | `("health_check.contrib.psutil.Disk", {"max_disk_usage_percent": ...})` |
+| `MEMORY_MIN` (MB available) | `("health_check.contrib.psutil.Memory", {"min_gibibytes_available": ...})`, in GiB. `Memory` also fails at `max_memory_usage_percent` (default 90); set it to `None` to check only available memory. |
+
+The `checks` list is validated when NetBox starts: an entry that can't be imported, isn't a health check, or has options that aren't a dict or that the check doesn't accept stops NetBox with an `ImproperlyConfigured` error naming the entry, instead of failing every health check request.
 
 ## Available Health Checks
 
@@ -181,11 +190,11 @@ A failing check reports its error message in place of `"OK"`. Plain text (`?form
 `?format=openmetrics` (or `Accept: application/openmetrics-text`) returns a `django_health_check_status` gauge and a `django_health_check_response_time_seconds` gauge per check. The Redis checks are labelled with the instance they check, so the two can be told apart:
 
 ```text
-django_health_check_status{check="NetBoxRedisCacheHealthCheck",instance="caching",host="redis",port="6379",db="1"} 1
-django_health_check_status{check="NetBoxRedisTasksHealthCheck",instance="tasks",host="redis",port="6379",db="0"} 1
+django_health_check_status{check="NetBoxRedisCacheHealthCheck",redis_instance="caching",host="redis",port="6379",db="1"} 1
+django_health_check_status{check="NetBoxRedisTasksHealthCheck",redis_instance="tasks",host="redis",port="6379",db="0"} 1
 ```
 
-A Unix socket is labelled `path` in place of `host`/`port`, and a Sentinel deployment is labelled `service` (the `SENTINEL_SERVICE`). Credentials are never included.
+The label is `redis_instance` rather than `instance`, which Prometheus reserves for the scrape target. A Unix socket is labelled `path` in place of `host`/`port`, and a Sentinel deployment is labelled `service` (the `SENTINEL_SERVICE`). Credentials are never included. The labels stay the same while an instance is failing, so alerts can match on them.
 
 ### HTTP Status Codes
 
