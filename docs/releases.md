@@ -9,6 +9,7 @@ Released 2026-09-24.
 * Default cache check is now `health_check.Cache`; `health_check.cache.backends.CacheBackend` and other 3.x check paths in `PLUGINS_CONFIG['checks']` are still accepted but log a deprecation warning
 * Custom health checks must use the django-health-check 4.x API (`HealthCheck` dataclass with `run()`)
 * JSON response keys are now each check's `repr` (e.g. `Database(alias='default')`) with `"OK"` or the error message as the value
+* The memory check fails under different conditions: `health_check.contrib.psutil.backends.MemoryUsage` now maps to `health_check.contrib.psutil.Memory`, which by default fails at 90% memory used and has no free-memory floor (3.x failed only below 100 MB free). A host that runs above 90% memory used will start failing the check. To keep the 3.x behaviour, configure `("health_check.contrib.psutil.Memory", {"min_gibibytes_available": 0.1, "max_memory_usage_percent": None})`
 * Redis health check errors show the exception type and target (e.g. `Redis ConnectionError for redis:6379/0`) but no longer the exception text, which may contain credentials; the details are logged instead
 * Redis health checks now PING the client NetBox itself builds (django-rq's for `tasks`, django-redis's for `caching`) instead of building their own URL from `REDIS`; they report unavailable, instead of falling back to `localhost:6379`, when that client can't be configured. The `build_redis_url_from_config()` and `build_redis_url_options()` helpers were removed
 

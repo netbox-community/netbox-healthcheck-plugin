@@ -19,6 +19,7 @@ release of NetBox HealthCheck Plugin.
 - **django-health-check >= 4.6 required** - Fixes startup failure on NetBox 4.7+ (Django 6.1)
 - **Custom health checks** must use the django-health-check 4.x API (`HealthCheck` dataclass with `run()`)
 - **JSON response keys** are now each check's `repr` (e.g. `Database(alias='default')`)
+- **Memory check thresholds changed** - The 3.x path `health_check.contrib.psutil.backends.MemoryUsage` maps to `health_check.contrib.psutil.Memory`, which by default fails at 90% memory used and has no free-memory floor (3.x failed only below 100 MB free). To keep the 3.x behaviour, use `('health_check.contrib.psutil.Memory', {'min_gibibytes_available': 0.1, 'max_memory_usage_percent': None})`
 - **Maximum NetBox version declared** - `max_version = '4.7.99'`; NetBox refuses to load the plugin on newer releases until a release raises the ceiling
 
 ### Version 0.3.0
