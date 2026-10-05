@@ -49,5 +49,12 @@ class HealthCheckConfig(PluginConfig):
                 f'not {user_config["login_required"]!r}.'
             )
 
+    def ready(self):
+        super().ready()
+        from .views import validate_checks, warn_legacy_settings
+
+        validate_checks()
+        warn_legacy_settings()
+
 
 config = HealthCheckConfig

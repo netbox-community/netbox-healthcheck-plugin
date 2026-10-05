@@ -1,10 +1,10 @@
 """Tests for netbox_healthcheck_plugin package."""
 
 import dataclasses
-import sys
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
+import redis
 from django.conf import settings
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -341,457 +341,485 @@ class TestHealthCheckConfiguration(TestCase):
         for check in checks:
             self.assertIsInstance(check, HealthCheck)
 
+    @patch('netbox_healthcheck_plugin.views.get_plugin_config')
+    def test_check_with_options(self, mock_get_config):
+        """(path, options) entries pass keyword arguments to the check."""
+        from health_check import Cache
 
-class TestBuildRedisUrl(TestCase):
-    """Tests for Redis URL building from NetBox config."""
+        from netbox_healthcheck_plugin.views import HealthCheckListView
 
-    def test_basic_config(self):
-        """Test basic Redis config without auth."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_from_config
+        mock_get_config.return_value = [('health_check.Cache', {'alias': 'default', 'key_prefix': 'netbox_probe'})]
 
-        config = {
-            'HOST': 'redis.example.com',
-            'PORT': 6379,
-            'DATABASE': 0,
-        }
-        url = build_redis_url_from_config(config)
-        self.assertEqual(url, 'redis://redis.example.com:6379/0')
+        (check,) = HealthCheckListView().get_checks()
 
-    def test_with_password(self):
-        """Test Redis config with password only."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_from_config
+        self.assertIsInstance(check, Cache)
+        self.assertEqual(check.key_prefix, 'netbox_probe')
 
-        config = {
-            'HOST': 'redis.example.com',
-            'PORT': 6379,
-            'DATABASE': 1,
-            'PASSWORD': 'secret',
-        }
-        url = build_redis_url_from_config(config)
-        self.assertEqual(url, 'redis://:secret@redis.example.com:6379/1')
+    @patch('netbox_healthcheck_plugin.views.get_plugin_config')
+    def test_legacy_check_path_with_options_resolved(self, mock_get_config):
+        """Legacy 3.x paths are remapped inside (path, options) entries too, lists included."""
+        from netbox_healthcheck_plugin.views import HealthCheckListView, _warn_legacy_check
 
-    def test_with_username_and_password(self):
-        """Test Redis config with username and password."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_from_config
+        mock_get_config.return_value = [
+            ('health_check.cache.backends.CacheBackend', {'alias': 'default'}),
+            ['health_check.contrib.psutil.backends.DiskUsage', {'max_disk_usage_percent': 80}],
+        ]
+        _warn_legacy_check.cache_clear()
 
-        config = {
-            'HOST': 'redis.example.com',
-            'PORT': 6379,
-            'DATABASE': 2,
-            'USERNAME': 'redisuser',
-            'PASSWORD': 'secret',
-        }
-        url = build_redis_url_from_config(config)
-        self.assertEqual(url, 'redis://redisuser:secret@redis.example.com:6379/2')
+        with self.assertLogs('netbox_healthcheck_plugin', level='WARNING'):
+            checks = HealthCheckListView().checks
 
-    def test_with_username_only(self):
-        """Test Redis config with username but no password."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_from_config
-
-        config = {
-            'HOST': 'redis.example.com',
-            'PORT': 6379,
-            'DATABASE': 0,
-            'USERNAME': 'redisuser',
-        }
-        url = build_redis_url_from_config(config)
-        self.assertEqual(url, 'redis://redisuser@redis.example.com:6379/0')
-
-    def test_with_ssl(self):
-        """Test Redis config with SSL enabled."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_from_config
-
-        config = {
-            'HOST': 'redis.example.com',
-            'PORT': 6380,
-            'DATABASE': 0,
-            'SSL': True,
-        }
-        url = build_redis_url_from_config(config)
-        self.assertEqual(url, 'rediss://redis.example.com:6380/0')
-
-    def test_defaults(self):
-        """build_redis_url_from_config applies redis-py defaults for missing keys."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_from_config
-
-        config = {}
-        url = build_redis_url_from_config(config)
-        self.assertEqual(url, 'redis://localhost:6379/0')
-
-    def test_none_credentials(self):
-        """USERNAME/PASSWORD set to None are treated as unset."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_from_config
-
-        config = {'HOST': 'redis.example.com', 'USERNAME': None, 'PASSWORD': None}
-        url = build_redis_url_from_config(config)
-        self.assertEqual(url, 'redis://redis.example.com:6379/0')
-
-    def test_password_with_special_chars_is_urlencoded(self):
-        """Passwords with reserved URL characters must be percent-encoded."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_from_config
-
-        config = {
-            'HOST': 'redis.example.com',
-            'PORT': 6379,
-            'DATABASE': 0,
-            'PASSWORD': 'p@ss:w/rd!',
-        }
-        url = build_redis_url_from_config(config)
-        # @ -> %40, : -> %3A, / -> %2F, ! -> %21
-        self.assertEqual(url, 'redis://:p%40ss%3Aw%2Frd%21@redis.example.com:6379/0')
-
-    def test_password_with_slash_is_urlencoded(self):
-        """Slash in password is encoded (quote defaults miss '/', we use safe='')."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_from_config
-
-        url = build_redis_url_from_config({'HOST': 'h', 'PORT': 6379, 'DATABASE': 0, 'PASSWORD': 'a/b'})
-        self.assertEqual(url, 'redis://:a%2Fb@h:6379/0')
-
-    def test_username_with_special_chars_is_urlencoded(self):
-        """Usernames with reserved URL characters must be percent-encoded."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_from_config
-
-        config = {
-            'HOST': 'redis.example.com',
-            'PORT': 6379,
-            'DATABASE': 0,
-            'USERNAME': 'user@acl',
-            'PASSWORD': 'secret',
-        }
-        url = build_redis_url_from_config(config)
-        self.assertEqual(url, 'redis://user%40acl:secret@redis.example.com:6379/0')
+        self.assertEqual(
+            checks,
+            [
+                ('health_check.Cache', {'alias': 'default'}),
+                ('health_check.contrib.psutil.Disk', {'max_disk_usage_percent': 80}),
+            ],
+        )
 
 
-class TestBuildRedisUrlOptions(TestCase):
-    """Tests for Redis URL options building."""
+class TestCheckValidation(TestCase):
+    """PLUGINS_CONFIG['checks'] is validated at startup, so a typo can't 500 every probe."""
 
-    def test_no_ssl(self):
-        """Test that no options are returned without SSL."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_options
+    @patch('netbox_healthcheck_plugin.views.get_plugin_config')
+    def test_valid_checks(self, mock_get_config):
+        from netbox_healthcheck_plugin import HealthCheckConfig
+        from netbox_healthcheck_plugin.views import _warn_legacy_check, validate_checks
 
-        config = {'SSL': False}
-        options = build_redis_url_options(config)
-        self.assertEqual(options, {})
+        _warn_legacy_check.cache_clear()
+        mock_get_config.return_value = [
+            *HealthCheckConfig.default_settings['checks'],
+            ('health_check.Cache', {'alias': 'default'}),
+            ['health_check.cache.backends.CacheBackend', {}],
+        ]
+        with self.assertLogs('netbox_healthcheck_plugin', level='WARNING'):
+            validate_checks()
 
-    def test_ssl_enabled_without_extras(self):
-        """SSL True with no INSECURE_SKIP_TLS_VERIFY or CA_CERT_PATH yields empty options."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_options
+    @patch('netbox_healthcheck_plugin.views.get_plugin_config')
+    def test_invalid_checks(self, mock_get_config):
+        import dataclasses
 
-        options = build_redis_url_options({'SSL': True})
-        self.assertEqual(options, {})
+        from django.core.exceptions import ImproperlyConfigured
+        from health_check import HealthCheck
 
-    def test_ssl_insecure(self):
-        """Test SSL with insecure skip verify."""
-        import ssl
+        from netbox_healthcheck_plugin.views import validate_checks
 
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_options
+        # Like the psutil checks' hostname, but without needing psutil installed.
+        @dataclasses.dataclass
+        class InitFalseCheck(HealthCheck):
+            hostname: str = dataclasses.field(default='x', init=False)
 
-        config = {
-            'SSL': True,
-            'INSECURE_SKIP_TLS_VERIFY': True,
-        }
-        options = build_redis_url_options(config)
-        self.assertEqual(options.get('ssl_cert_reqs'), ssl.CERT_NONE)
+            def run(self):
+                pass
 
-    def test_ssl_with_ca_cert(self):
-        """Test SSL with CA certificate path."""
-        from netbox_healthcheck_plugin.backends.redis import build_redis_url_options
+        cases = [
+            ('health_check.Nope', 'cannot be imported'),
+            (('health_check.Cache', {'aliass': 'default'}), 'has invalid options'),
+            (('health_check.Cache', ['alias']), 'options must be a dict'),
+            (('health_check.Cache', {}, {}), 'must be a dotted path or a (path, options) pair'),
+            ('django.conf.settings', 'is not a django-health-check HealthCheck'),
+            ((InitFalseCheck, {'hostname': 'x'}), 'has invalid options'),
+        ]
+        for entry, message in cases:
+            with self.subTest(entry=entry):
+                mock_get_config.return_value = [entry]
+                with self.assertRaisesMessage(ImproperlyConfigured, message):
+                    validate_checks()
 
-        config = {
-            'SSL': True,
-            'CA_CERT_PATH': '/etc/ssl/certs/ca-bundle.crt',
-        }
-        options = build_redis_url_options(config)
-        self.assertEqual(options.get('ssl_ca_certs'), '/etc/ssl/certs/ca-bundle.crt')
+    @override_settings(HEALTH_CHECK={'DISK_USAGE_MAX': 80, 'MEMORY_MIN': 200})
+    def test_legacy_health_check_setting_warns(self):
+        from netbox_healthcheck_plugin.views import warn_legacy_settings
+
+        with self.assertLogs('netbox_healthcheck_plugin', level='WARNING') as logs:
+            warn_legacy_settings()
+        self.assertIn('max_disk_usage_percent', logs.output[0])
+
+    def test_no_health_check_setting_is_quiet(self):
+        from netbox_healthcheck_plugin.views import warn_legacy_settings
+
+        with self.assertNoLogs('netbox_healthcheck_plugin', level='WARNING'):
+            warn_legacy_settings()
+
+
+def _mock_connection(**connection_kwargs):
+    """Return a mock Redis client whose pool carries the given connection kwargs."""
+    connection = MagicMock()
+    connection.connection_pool = MagicMock(spec=['connection_kwargs'])
+    connection.connection_pool.connection_kwargs = {
+        'host': 'redis.example.com',
+        'port': 6379,
+        'db': 0,
+    } | connection_kwargs
+    return connection
 
 
 class TestNetBoxRedisCacheHealthCheck(TestCase):
     """Tests for the NetBox Redis cache health check backend."""
 
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_reads_from_caching_config(self, mock_settings):
-        """Test that the backend reads from NetBox's REDIS caching config."""
+    def test_uses_django_redis_default_cache(self):
+        """The check targets the client behind CACHES['default'] (REDIS['caching'] in testing/configuration.py)."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
 
-        mock_settings.REDIS = {
-            'caching': {
-                'HOST': 'cache-redis-host',
-                'PORT': 6379,
-                'DATABASE': 1,
+        self.assertEqual(
+            NetBoxRedisCacheHealthCheck().labels,
+            {
+                'check': 'NetBoxRedisCacheHealthCheck',
+                'redis_instance': 'caching',
+                'host': 'localhost',
+                'port': '6379',
+                'db': '1',
             },
-            'tasks': {
-                'HOST': 'tasks-redis-host',
-                'PORT': 6380,
-                'DATABASE': 2,
-            },
-        }
+        )
 
-        backend = NetBoxRedisCacheHealthCheck()
-        self.assertEqual(backend._redis_url, 'redis://cache-redis-host:6379/1')
-        self.assertIsNone(backend._config_error)
-
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_repr(self, mock_settings):
-        """Test that repr is redis:caching."""
+    def test_repr(self):
+        """repr is redis:caching, and is the JSON key, so it must stay stable."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
 
-        mock_settings.REDIS = {'caching': {'HOST': 'localhost'}}
+        self.assertEqual(repr(NetBoxRedisCacheHealthCheck()), 'redis:caching')
 
-        backend = NetBoxRedisCacheHealthCheck()
-        self.assertEqual(repr(backend), 'redis:caching')
-
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_run_success(self, mock_settings):
-        """run() returns None and closes the connection on success."""
-        import redis
-
+    @override_settings(
+        CACHES={
+            'default': {
+                'BACKEND': 'django_redis.cache.RedisCache',
+                'LOCATION': 'redis://mymaster/1',
+                'OPTIONS': {
+                    'CLIENT_CLASS': 'django_redis.client.SentinelClient',
+                    'SENTINELS': [('sentinel.example.com', 26379)],
+                    'PASSWORD': 'hunter2',
+                },
+            }
+        },
+        DJANGO_REDIS_CONNECTION_FACTORY='django_redis.pool.SentinelConnectionFactory',
+    )
+    def test_sentinel(self):
+        """A Sentinel-backed cache (REDIS['caching']['SENTINELS']) is labelled by service, not localhost."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
 
-        mock_settings.REDIS = {'caching': {'HOST': 'localhost'}}
-        mock_connection = MagicMock()
+        labels = NetBoxRedisCacheHealthCheck().labels
+        self.assertEqual(labels['service'], 'mymaster')
+        self.assertEqual(labels['db'], '1')
+        self.assertNotIn('host', labels)
+        self.assertNotIn('hunter2', str(labels))
 
-        backend = NetBoxRedisCacheHealthCheck()
-        with patch.object(redis.Redis, 'from_url', return_value=mock_connection) as mock_from_url:
-            self.assertIsNone(backend.run())
+    def test_run_success_keeps_shared_pool_open(self):
+        """run() PINGs and leaves django-redis's shared connection pool open."""
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
 
-        mock_from_url.assert_called_once()
-        mock_connection.ping.assert_called_once()
-        mock_connection.close.assert_called_once()
+        connection = _mock_connection()
+        with patch('django_redis.get_redis_connection', return_value=connection) as mock_get:
+            self.assertIsNone(NetBoxRedisCacheHealthCheck().run())
 
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_run_connection_error(self, mock_settings):
-        """redis.ConnectionError maps to ServiceUnavailable."""
-        import redis
+        mock_get.assert_called_once_with('default')
+        connection.ping.assert_called_once()
+        connection.close.assert_not_called()
+
+    def test_run_connection_error(self):
+        """redis.ConnectionError maps to ServiceUnavailable naming the target."""
         from health_check.exceptions import ServiceUnavailable
 
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
 
-        mock_settings.REDIS = {'caching': {'HOST': 'nonexistent-host'}}
-
-        backend = NetBoxRedisCacheHealthCheck()
-        mock_connection = MagicMock()
-        mock_connection.ping.side_effect = redis.ConnectionError('Connection refused')
+        connection = _mock_connection()
+        connection.ping.side_effect = redis.ConnectionError('Connection refused')
         with (
-            patch.object(redis.Redis, 'from_url', return_value=mock_connection),
-            self.assertRaises(ServiceUnavailable),
-        ):
-            backend.run()
-        mock_connection.close.assert_called_once()
-
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_run_redis_error_not_connection_error(self, mock_settings):
-        """Non-connection redis errors (e.g. DataError) still map to ServiceUnavailable."""
-        import redis
-        from health_check.exceptions import ServiceUnavailable
-
-        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
-
-        mock_settings.REDIS = {'caching': {'HOST': 'localhost'}}
-        backend = NetBoxRedisCacheHealthCheck()
-        mock_connection = MagicMock()
-        # DataError is a RedisError but NOT a ConnectionError subclass,
-        # so it hits the second except branch.
-        mock_connection.ping.side_effect = redis.DataError('bad command')
-        with (
-            patch.object(redis.Redis, 'from_url', return_value=mock_connection),
+            patch('django_redis.get_redis_connection', return_value=connection),
             self.assertRaises(ServiceUnavailable) as ctx,
         ):
-            backend.run()
+            NetBoxRedisCacheHealthCheck().run()
+
+        self.assertIn('redis.example.com:6379/0', str(ctx.exception))
+        self.assertIsNone(ctx.exception.__cause__)
+
+    def test_run_redis_error_not_connection_error(self):
+        """Non-connection redis errors (e.g. DataError) still map to ServiceUnavailable."""
+        from health_check.exceptions import ServiceUnavailable
+
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
+
+        connection = _mock_connection()
+        connection.ping.side_effect = redis.DataError('bad command')
+        with (
+            patch('django_redis.get_redis_connection', return_value=connection),
+            self.assertRaises(ServiceUnavailable) as ctx,
+        ):
+            NetBoxRedisCacheHealthCheck().run()
 
         self.assertIn('DataError', str(ctx.exception))
-        mock_connection.close.assert_called_once()
 
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_run_generic_exception_not_caught(self, mock_settings):
-        """Non-redis errors (e.g. TypeError from bad config) propagate to the framework."""
-        import redis
-
-        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
-
-        mock_settings.REDIS = {'caching': {'HOST': 'localhost'}}
-        backend = NetBoxRedisCacheHealthCheck()
-        mock_connection = MagicMock()
-        mock_connection.ping.side_effect = TypeError('bad argument')
-        with (
-            patch.object(redis.Redis, 'from_url', return_value=mock_connection),
-            self.assertRaises(TypeError),
-        ):
-            backend.run()
-        mock_connection.close.assert_called_once()
-
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_run_password_masked_in_error(self, mock_settings):
-        """Error messages include the masked URL, not the raw password."""
-        import redis
+    def test_run_generic_exception_keeps_context(self):
+        """Non-redis errors from PING still fail the check with its target."""
         from health_check.exceptions import ServiceUnavailable
 
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
 
-        mock_settings.REDIS = {'caching': {'HOST': 'h', 'PORT': 6379, 'DATABASE': 0, 'PASSWORD': 'topsecret'}}
-        backend = NetBoxRedisCacheHealthCheck()
-        mock_connection = MagicMock()
-        mock_connection.ping.side_effect = redis.ConnectionError('refused')
+        connection = _mock_connection()
+        connection.ping.side_effect = OSError('bad certificate')
         with (
-            patch.object(redis.Redis, 'from_url', return_value=mock_connection),
+            patch('django_redis.get_redis_connection', return_value=connection),
+            self.assertLogs('netbox_healthcheck_plugin', level='WARNING'),
+            self.assertRaises(ServiceUnavailable) as ctx,
+        ):
+            NetBoxRedisCacheHealthCheck().run()
+
+        self.assertEqual(str(ctx.exception), 'Unavailable: Redis OSError for redis.example.com:6379/0')
+
+    def test_run_error_text_not_shown(self):
+        """The exception text is never shown, since it may echo credentials (even as a substring of the host)."""
+        from health_check.exceptions import ServiceUnavailable
+
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
+
+        connection = _mock_connection(host='redis', password='redis')
+        connection.ping.side_effect = redis.ConnectionError('Error connecting to redis://:redis@redis:6379/0')
+        with (
+            patch('django_redis.get_redis_connection', return_value=connection),
+            self.assertLogs('netbox_healthcheck_plugin', level='WARNING'),
+            self.assertRaises(ServiceUnavailable) as ctx,
+        ):
+            NetBoxRedisCacheHealthCheck().run()
+
+        self.assertEqual(str(ctx.exception), 'Unavailable: Redis ConnectionError for redis:6379/0')
+
+    def test_run_client_configuration_error(self):
+        """A client that cannot be built fails the check without leaking the exception text."""
+        from health_check.exceptions import ServiceUnavailable
+
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
+
+        backend = NetBoxRedisCacheHealthCheck()
+        with (
+            patch('django_redis.get_redis_connection', side_effect=NotImplementedError('secret detail')),
+            self.assertLogs('netbox_healthcheck_plugin', level='WARNING'),
             self.assertRaises(ServiceUnavailable) as ctx,
         ):
             backend.run()
 
-        msg = str(ctx.exception)
-        self.assertNotIn('topsecret', msg)
-        self.assertIn(':REDACTED@', msg)
-
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_run_real_url_scrubbed_from_inner_message(self, mock_settings):
-        """If the underlying exception echoes the real URL back, it gets scrubbed."""
-        import redis
-        from health_check.exceptions import ServiceUnavailable
-
-        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
-
-        mock_settings.REDIS = {'caching': {'HOST': 'h', 'PORT': 6379, 'DATABASE': 0, 'PASSWORD': 'hunter2'}}
-        backend = NetBoxRedisCacheHealthCheck()
-        mock_connection = MagicMock()
-        mock_connection.ping.side_effect = redis.ConnectionError(f'Error connecting to {backend._redis_url}: refused')
-        with (
-            patch.object(redis.Redis, 'from_url', return_value=mock_connection),
-            self.assertRaises(ServiceUnavailable) as ctx,
-        ):
-            backend.run()
-
-        self.assertNotIn('hunter2', str(ctx.exception))
-
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_run_no_mask_when_no_auth(self, mock_settings):
-        """URLs without credentials don't get rewritten by the masking logic."""
-        import redis
-        from health_check.exceptions import ServiceUnavailable
-
-        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
-
-        mock_settings.REDIS = {'caching': {'HOST': 'plain', 'PORT': 6379, 'DATABASE': 0}}
-        backend = NetBoxRedisCacheHealthCheck()
-        mock_connection = MagicMock()
-        mock_connection.ping.side_effect = redis.ConnectionError('refused')
-        with (
-            patch.object(redis.Redis, 'from_url', return_value=mock_connection),
-            self.assertRaises(ServiceUnavailable) as ctx,
-        ):
-            backend.run()
-
-        self.assertIn('redis://plain:6379/0', str(ctx.exception))
-
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_run_no_mask_when_username_only(self, mock_settings):
-        """Username-only URLs have no colon before @, so the masker leaves them alone."""
-        import redis
-        from health_check.exceptions import ServiceUnavailable
-
-        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
-
-        mock_settings.REDIS = {'caching': {'HOST': 'h', 'PORT': 6379, 'DATABASE': 0, 'USERNAME': 'ro'}}
-        backend = NetBoxRedisCacheHealthCheck()
-        mock_connection = MagicMock()
-        mock_connection.ping.side_effect = redis.ConnectionError('refused')
-        with (
-            patch.object(redis.Redis, 'from_url', return_value=mock_connection),
-            self.assertRaises(ServiceUnavailable) as ctx,
-        ):
-            backend.run()
-
-        self.assertIn('ro@h:6379/0', str(ctx.exception))
-
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_run_raises_for_missing_config(self, mock_settings):
-        """run() fails loudly when the key is absent from settings.REDIS."""
-        from health_check.exceptions import ServiceUnavailable
-
-        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
-
-        mock_settings.REDIS = {'tasks': {'HOST': 'localhost'}}  # no 'caching' key
-        backend = NetBoxRedisCacheHealthCheck()
-        self.assertIsNotNone(backend._config_error)
-
-        with self.assertRaises(ServiceUnavailable) as ctx:
-            backend.run()
         self.assertIn('caching', str(ctx.exception))
+        self.assertIn('NotImplementedError', str(ctx.exception))
+        self.assertNotIn('secret detail', str(ctx.exception))
 
-    def test_run_raises_when_redis_setting_absent(self):
-        """Entirely missing settings.REDIS is still a hard fail, not a silent default."""
-        from django.conf import settings
-        from health_check.exceptions import ServiceUnavailable
-
+    def test_labels_without_client(self):
+        """Labels fall back to settings.REDIS when the client cannot be built, so the series doesn't change."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
 
-        with patch.object(settings, 'REDIS', {}, create=True):
-            backend = NetBoxRedisCacheHealthCheck()
-            self.assertIsNotNone(backend._config_error)
-            with self.assertRaises(ServiceUnavailable):
-                backend.run()
+        healthy = NetBoxRedisCacheHealthCheck().labels
+        with patch('django_redis.get_redis_connection', side_effect=NotImplementedError):
+            labels = NetBoxRedisCacheHealthCheck().labels
 
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_run_redis_library_not_installed(self, mock_settings):
-        """Missing redis-py dependency surfaces as ServiceUnavailable."""
-        from health_check.exceptions import ServiceUnavailable
+        self.assertEqual(labels, healthy)
 
+    @override_settings(REDIS={'caching': {'URL': 'unix:///run/redis/redis.sock?db=3', 'PASSWORD': 'hunter2'}})
+    def test_labels_without_client_url(self):
+        """The settings fallback parses REDIS[...]['URL'] and never labels credentials."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
 
-        mock_settings.REDIS = {'caching': {'HOST': 'localhost'}}
-        backend = NetBoxRedisCacheHealthCheck()
+        with patch('django_redis.get_redis_connection', side_effect=NotImplementedError):
+            labels = NetBoxRedisCacheHealthCheck().labels
 
-        with patch.dict(sys.modules, {'redis': None}), self.assertRaises(ServiceUnavailable) as ctx:
-            backend.run()
-        self.assertIn('redis library not installed', str(ctx.exception))
+        self.assertEqual(
+            labels,
+            {
+                'check': 'NetBoxRedisCacheHealthCheck',
+                'redis_instance': 'caching',
+                'path': '/run/redis/redis.sock',
+                'db': '3',
+            },
+        )
+
+    @override_settings(REDIS={'caching': {'HOST': 'redis.example.com'}})
+    def test_labels_without_client_defaults(self):
+        """The settings fallback applies NetBox's PORT and DATABASE defaults, matching the healthy labels."""
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
+
+        with patch('django_redis.get_redis_connection', side_effect=NotImplementedError):
+            labels = NetBoxRedisCacheHealthCheck().labels
+
+        self.assertEqual(
+            labels,
+            {
+                'check': 'NetBoxRedisCacheHealthCheck',
+                'redis_instance': 'caching',
+                'host': 'redis.example.com',
+                'port': '6379',
+                'db': '0',
+            },
+        )
+
+    @override_settings(REDIS={'caching': {'SENTINELS': [('sentinel', 26379)], 'PASSWORD': 'hunter2'}})
+    def test_labels_without_client_sentinel_defaults(self):
+        """Without SENTINEL_SERVICE the fallback uses NetBox's 'default' service, not HOST/PORT."""
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
+
+        with patch('django_redis.get_redis_connection', side_effect=NotImplementedError):
+            labels = NetBoxRedisCacheHealthCheck().labels
+
+        self.assertEqual(
+            labels,
+            {'check': 'NetBoxRedisCacheHealthCheck', 'redis_instance': 'caching', 'service': 'default', 'db': '0'},
+        )
+
+    @override_settings(REDIS={})
+    def test_labels_without_client_or_settings(self):
+        """With neither a client nor a REDIS entry, only check and redis_instance are labelled."""
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
+
+        with patch('django_redis.get_redis_connection', side_effect=NotImplementedError):
+            labels = NetBoxRedisCacheHealthCheck().labels
+
+        self.assertEqual(labels, {'check': 'NetBoxRedisCacheHealthCheck', 'redis_instance': 'caching'})
+
+    def test_run_against_local_redis(self):
+        """End to end against the Redis in testing/configuration.py."""
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
+
+        self.assertIsNone(NetBoxRedisCacheHealthCheck().run())
 
 
 class TestNetBoxRedisTasksHealthCheck(TestCase):
     """Tests for the NetBox Redis tasks health check backend."""
 
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_reads_from_tasks_config(self, mock_settings):
-        """Test that the backend reads from NetBox's REDIS tasks config."""
+    def test_uses_rq_default_queue(self):
+        """The check targets RQ_QUEUES['default'] (REDIS['tasks'] in testing/configuration.py)."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisTasksHealthCheck
 
-        mock_settings.REDIS = {
-            'caching': {
-                'HOST': 'cache-redis-host',
-                'PORT': 6379,
-                'DATABASE': 1,
+        self.assertEqual(
+            NetBoxRedisTasksHealthCheck().labels,
+            {
+                'check': 'NetBoxRedisTasksHealthCheck',
+                'redis_instance': 'tasks',
+                'host': 'localhost',
+                'port': '6379',
+                'db': '0',
             },
-            'tasks': {
-                'HOST': 'tasks-redis-host',
-                'PORT': 6380,
-                'DATABASE': 2,
-            },
+        )
+
+    def test_repr(self):
+        """repr is redis:tasks."""
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisTasksHealthCheck
+
+        self.assertEqual(repr(NetBoxRedisTasksHealthCheck()), 'redis:tasks')
+
+    @override_settings(
+        RQ_QUEUES={
+            'default': {
+                'SENTINELS': [('sentinel.example.com', 26379)],
+                'MASTER_NAME': 'tasks-master',
+                'DB': 2,
+                'PASSWORD': 'hunter2',
+                'CONNECTION_KWARGS': {'socket_connect_timeout': 10},
+            }
         }
-
-        backend = NetBoxRedisTasksHealthCheck()
-        self.assertEqual(backend._redis_url, 'redis://tasks-redis-host:6380/2')
-
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_repr(self, mock_settings):
-        """Test that repr is redis:tasks."""
+    )
+    def test_sentinel(self):
+        """REDIS['tasks']['SENTINELS'] is honoured instead of pinging localhost."""
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisTasksHealthCheck
 
-        mock_settings.REDIS = {'tasks': {'HOST': 'localhost'}}
+        backend = NetBoxRedisTasksHealthCheck()
+        labels = backend.labels
+        self.assertEqual(labels['service'], 'tasks-master')
+        self.assertEqual(labels['db'], '2')
+        self.assertNotIn('host', labels)
+        self.assertNotIn('hunter2', str(labels))
+        self.assertEqual(backend._target(), "sentinel service 'tasks-master'")
+
+    @override_settings(RQ_QUEUES={'default': {'URL': 'unix:///run/redis/redis.sock', 'DB': 3}})
+    def test_unix_socket_url(self):
+        """REDIS['tasks']['URL'] (e.g. a Unix socket) is honoured."""
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisTasksHealthCheck
 
         backend = NetBoxRedisTasksHealthCheck()
-        self.assertEqual(repr(backend), 'redis:tasks')
+        self.assertEqual(backend.labels['path'], '/run/redis/redis.sock')
+        self.assertEqual(backend.labels['db'], '3')
+        self.assertEqual(backend._target(), 'unix:///run/redis/redis.sock')
 
-    @patch('netbox_healthcheck_plugin.backends.redis.settings')
-    def test_run_success(self, mock_settings):
-        """run() returns None and closes the connection on success."""
-        import redis
+    @override_settings(RQ_QUEUES={})
+    def test_missing_default_queue(self):
+        """A missing RQ queue fails the check rather than silently pinging localhost."""
+        from health_check.exceptions import ServiceUnavailable
 
         from netbox_healthcheck_plugin.backends.redis import NetBoxRedisTasksHealthCheck
 
-        mock_settings.REDIS = {'tasks': {'HOST': 'localhost'}}
-        mock_connection = MagicMock()
+        with (
+            self.assertLogs('netbox_healthcheck_plugin', level='WARNING'),
+            self.assertRaises(ServiceUnavailable) as ctx,
+        ):
+            NetBoxRedisTasksHealthCheck().run()
+        self.assertIn('tasks', str(ctx.exception))
 
-        backend = NetBoxRedisTasksHealthCheck()
-        with patch.object(redis.Redis, 'from_url', return_value=mock_connection) as mock_from_url:
-            self.assertIsNone(backend.run())
+    def test_run_closes_connection(self):
+        """run() PINGs and closes the client django-rq built for it."""
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisTasksHealthCheck
 
-        mock_from_url.assert_called_once()
-        mock_connection.ping.assert_called_once()
-        mock_connection.close.assert_called_once()
+        connection = _mock_connection()
+        with patch('django_rq.queues.get_redis_connection', return_value=connection):
+            self.assertIsNone(NetBoxRedisTasksHealthCheck().run())
+
+        connection.ping.assert_called_once()
+        connection.close.assert_called_once()
+
+    def test_run_closes_connection_on_error(self):
+        """The client is closed even when PING fails."""
+        from health_check.exceptions import ServiceUnavailable
+
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisTasksHealthCheck
+
+        connection = _mock_connection()
+        connection.ping.side_effect = redis.ConnectionError('refused')
+        with (
+            patch('django_rq.queues.get_redis_connection', return_value=connection),
+            self.assertLogs('netbox_healthcheck_plugin', level='WARNING'),
+            self.assertRaises(ServiceUnavailable),
+        ):
+            NetBoxRedisTasksHealthCheck().run()
+
+        connection.close.assert_called_once()
+
+    def test_close_error_does_not_mask_result(self):
+        """An error from close() is logged, and doesn't replace the PING result."""
+        from health_check.exceptions import ServiceUnavailable
+
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisTasksHealthCheck
+
+        connection = _mock_connection()
+        connection.close.side_effect = redis.ConnectionError('already closed')
+        with patch('django_rq.queues.get_redis_connection', return_value=connection):
+            with self.assertLogs('netbox_healthcheck_plugin', level='WARNING'):
+                self.assertIsNone(NetBoxRedisTasksHealthCheck().run())
+
+            connection.ping.side_effect = redis.TimeoutError('timed out')
+            with (
+                self.assertLogs('netbox_healthcheck_plugin', level='WARNING'),
+                self.assertRaises(ServiceUnavailable) as ctx,
+            ):
+                NetBoxRedisTasksHealthCheck().run()
+        self.assertIn('TimeoutError', str(ctx.exception))
+
+    def test_run_against_local_redis(self):
+        """End to end against the Redis in testing/configuration.py."""
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisTasksHealthCheck
+
+        self.assertIsNone(NetBoxRedisTasksHealthCheck().run())
+
+
+class TestOpenMetrics(TestCase):
+    """The OpenMetrics output tells the two Redis instances apart."""
+
+    @patch('netbox_healthcheck_plugin.views.get_plugin_config')
+    def test_redis_labels(self, mock_get_config):
+        from django.contrib.auth import get_user_model
+
+        mock_get_config.return_value = [
+            'netbox_healthcheck_plugin.backends.redis.NetBoxRedisCacheHealthCheck',
+            'netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck',
+        ]
+        client = Client()
+        client.force_login(get_user_model().objects.create_user(username='probe'))
+        response = client.get(reverse('plugins:netbox_healthcheck_plugin:healthcheck_list'), {'format': 'openmetrics'})
+
+        body = response.content.decode()
+        self.assertIn(
+            'django_health_check_status{check="NetBoxRedisCacheHealthCheck",redis_instance="caching",'
+            'host="localhost",port="6379",db="1"} 1',
+            body,
+        )
+        self.assertIn('redis_instance="tasks"', body)
