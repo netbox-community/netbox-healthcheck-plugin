@@ -184,9 +184,20 @@ class TestCheckValidation(TestCase):
 
     @patch('netbox_healthcheck_plugin.views.get_plugin_config')
     def test_invalid_checks(self, mock_get_config):
+        import dataclasses
+
         from django.core.exceptions import ImproperlyConfigured
+        from health_check import HealthCheck
 
         from netbox_healthcheck_plugin.views import validate_checks
+
+        # Like the psutil checks' hostname, but without needing psutil installed.
+        @dataclasses.dataclass
+        class InitFalseCheck(HealthCheck):
+            hostname: str = dataclasses.field(default='x', init=False)
+
+            def run(self):
+                pass
 
         cases = [
             ('health_check.Nope', 'cannot be imported'),
@@ -194,7 +205,7 @@ class TestCheckValidation(TestCase):
             (('health_check.Cache', ['alias']), 'options must be a dict'),
             (('health_check.Cache', {}, {}), 'must be a dotted path or a (path, options) pair'),
             ('django.conf.settings', 'is not a django-health-check HealthCheck'),
-            (('health_check.contrib.psutil.Memory', {'hostname': 'x'}), 'has invalid options'),
+            ((InitFalseCheck, {'hostname': 'x'}), 'has invalid options'),
         ]
         for entry, message in cases:
             with self.subTest(entry=entry):
