@@ -92,18 +92,24 @@ class BaseNetBoxRedisHealthCheck(HealthCheck):
         Derive host/port/db (or path, or service) labels from settings.REDIS.
 
         Only used when the client can't be built, so a failing instance keeps the same
-        series as a healthy one.
+        series as a healthy one. Missing keys take NetBox's defaults (netbox/settings.py).
         """
-        config = (getattr(settings, 'REDIS', None) or {}).get(self.redis_config_key) or {}
-        if config.get('SENTINELS') and (service_name := config.get('SENTINEL_SERVICE')):
-            kwargs = {'service': service_name, 'db': config.get('DATABASE')}
+        config = (getattr(settings, 'REDIS', None) or {}).get(self.redis_config_key)
+        if not config:
+            return {}
+        if config.get('SENTINELS'):
+            kwargs = {'service': config.get('SENTINEL_SERVICE', 'default'), 'db': config.get('DATABASE', 0)}
         elif url := config.get('URL'):
             try:
                 kwargs = {key: value for key, value in parse_url(url).items() if key in LABEL_KWARGS}
             except Exception:
                 return {}
         else:
-            kwargs = {'host': config.get('HOST'), 'port': config.get('PORT'), 'db': config.get('DATABASE')}
+            kwargs = {
+                'host': config.get('HOST', 'localhost'),
+                'port': config.get('PORT', 6379),
+                'db': config.get('DATABASE', 0),
+            }
         return {key: str(value) for key, value in kwargs.items() if value is not None}
 
     @property

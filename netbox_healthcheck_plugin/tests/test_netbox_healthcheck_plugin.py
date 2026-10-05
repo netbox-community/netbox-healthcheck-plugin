@@ -413,6 +413,38 @@ class TestNetBoxRedisCacheHealthCheck(TestCase):
             },
         )
 
+    @override_settings(REDIS={'caching': {'HOST': 'redis.example.com'}})
+    def test_labels_without_client_defaults(self):
+        """The settings fallback applies NetBox's PORT and DATABASE defaults, matching the healthy labels."""
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
+
+        with patch('django_redis.get_redis_connection', side_effect=NotImplementedError):
+            labels = NetBoxRedisCacheHealthCheck().labels
+
+        self.assertEqual(
+            labels,
+            {
+                'check': 'NetBoxRedisCacheHealthCheck',
+                'redis_instance': 'caching',
+                'host': 'redis.example.com',
+                'port': '6379',
+                'db': '0',
+            },
+        )
+
+    @override_settings(REDIS={'caching': {'SENTINELS': [('sentinel', 26379)], 'PASSWORD': 'hunter2'}})
+    def test_labels_without_client_sentinel_defaults(self):
+        """Without SENTINEL_SERVICE the fallback uses NetBox's 'default' service, not HOST/PORT."""
+        from netbox_healthcheck_plugin.backends.redis import NetBoxRedisCacheHealthCheck
+
+        with patch('django_redis.get_redis_connection', side_effect=NotImplementedError):
+            labels = NetBoxRedisCacheHealthCheck().labels
+
+        self.assertEqual(
+            labels,
+            {'check': 'NetBoxRedisCacheHealthCheck', 'redis_instance': 'caching', 'service': 'default', 'db': '0'},
+        )
+
     @override_settings(REDIS={})
     def test_labels_without_client_or_settings(self):
         """With neither a client nor a REDIS entry, only check and redis_instance are labelled."""
