@@ -1,10 +1,16 @@
 """Tests for netbox_healthcheck_plugin package."""
 
+import dataclasses
 import sys
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
+from django.conf import settings
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
+from health_check import HealthCheck
+from health_check.exceptions import ServiceUnavailable
 
 
 class TestHealthCheckPlugin(TestCase):
@@ -35,8 +41,41 @@ class TestHealthCheckPlugin(TestCase):
         self.assertIs(HealthCheckConfig.default_settings['login_required'], True)
 
 
+@dataclasses.dataclass
+class FailingCheck(HealthCheck):
+    """A check that fails with a message naming an internal host, which anonymous responses must not reveal."""
+
+    def run(self):
+        raise ServiceUnavailable('redis.internal.example:6379 refused the connection')
+
+
+FAILING_CHECK = f'{__name__}.FailingCheck'
+
+
+class TestLoginRequiredValidation(TestCase):
+    """Test that login_required must be a real bool."""
+
+    def test_non_bool_rejected(self):
+        """Values whose truthiness would mislead, such as the string "false" or None, are refused at startup."""
+        from django.core.exceptions import ImproperlyConfigured
+
+        from netbox_healthcheck_plugin import HealthCheckConfig
+
+        for value in ('false', 'True', None, 0, 1, ''):
+            with self.subTest(value=value), self.assertRaises(ImproperlyConfigured):
+                HealthCheckConfig.validate({'login_required': value}, settings.RELEASE.version)
+
+    def test_bool_and_default_accepted(self):
+        """True, False and the default are accepted."""
+        from netbox_healthcheck_plugin import HealthCheckConfig
+
+        for user_config in ({'login_required': True}, {'login_required': False}, {}):
+            with self.subTest(user_config=user_config):
+                HealthCheckConfig.validate(user_config, settings.RELEASE.version)
+
+
 class TestHealthCheckAccess(TestCase):
-    """Test who can reach the healthcheck endpoint."""
+    """Test who gets the full report and who gets only the status."""
 
     url = reverse('plugins:netbox_healthcheck_plugin:healthcheck_list')
     BROWSER_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
@@ -47,8 +86,6 @@ class TestHealthCheckAccess(TestCase):
         self.user = User.objects.create_user(username='healthcheck')
 
     def plugin_config(self, **overrides):
-        from django.conf import settings
-
         return override_settings(
             PLUGINS_CONFIG={
                 **settings.PLUGINS_CONFIG,
@@ -59,6 +96,13 @@ class TestHealthCheckAccess(TestCase):
             }
         )
 
+    def create_token(self, **kwargs):
+        from users.constants import TOKEN_PREFIX
+        from users.models import Token
+
+        token = Token.objects.create(user=self.user, **kwargs)
+        return f'Bearer {TOKEN_PREFIX}{token.key}.{token.token}'
+
     def test_anonymous_browser_redirected_to_login(self):
         """By default an anonymous browser request is sent to the login page."""
         response = Client().get(self.url, HTTP_ACCEPT=self.BROWSER_ACCEPT)
@@ -67,64 +111,148 @@ class TestHealthCheckAccess(TestCase):
         self.assertIn('/login/', response['Location'])
         self.assertIn('Accept', response['Vary'])
 
-    def test_anonymous_probe_unauthorized(self):
-        """Anonymous non-browser requests get 401, not a redirect a probe would count as healthy."""
+    def test_anonymous_gets_status_only(self):
+        """Anonymous non-browser requests get the overall status in the requested format, without check details."""
         cases = {
-            'no Accept header': ({}, {}),
-            'wildcard Accept': ({}, {'HTTP_ACCEPT': '*/*'}),
-            'JSON preferred': ({}, {'HTTP_ACCEPT': 'application/json, text/html;q=0.5'}),
-            'format overrides Accept': ({'format': 'json'}, {'HTTP_ACCEPT': self.BROWSER_ACCEPT}),
+            'no Accept header': ({}, {}, 'text/plain; charset=utf-8', 'OK\n'),
+            'wildcard Accept': ({}, {'HTTP_ACCEPT': '*/*'}, 'text/plain; charset=utf-8', 'OK\n'),
+            'JSON preferred': (
+                {},
+                {'HTTP_ACCEPT': 'application/json, text/html;q=0.5'},
+                'application/json',
+                '{"status": "OK"}',
+            ),
+            'format overrides Accept': (
+                {'format': 'json'},
+                {'HTTP_ACCEPT': self.BROWSER_ACCEPT},
+                'application/json',
+                '{"status": "OK"}',
+            ),
         }
-        for name, (params, headers) in cases.items():
+        for name, (params, headers, content_type, body) in cases.items():
             with self.subTest(name):
                 response = Client().get(self.url, params, **headers)
 
-                self.assertEqual(response.status_code, 401)
-                self.assertEqual(response['WWW-Authenticate'], 'Bearer')
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response['Content-Type'], content_type)
+                self.assertEqual(response.content.decode(), body)
                 self.assertIn('Accept', response['Vary'])
+                self.assertIn('no-cache', response['Cache-Control'])
 
-    def test_session_user_allowed(self):
-        """A logged-in user sees the health check results."""
+    def test_anonymous_failure_hides_details(self):
+        """A failing check gives anonymous requests an unhealthy status without its error message."""
+        with self.plugin_config(checks=['health_check.Database', FAILING_CHECK]):
+            responses = {
+                fmt: Client().get(self.url, {'format': fmt}) for fmt in ('text', 'json', 'openmetrics', 'atom', 'rss')
+            }
+
+        self.assertEqual(responses['text'].status_code, 500)
+        self.assertEqual(responses['text'].content, b'Unhealthy\n')
+        self.assertEqual(responses['json'].status_code, 500)
+        self.assertEqual(responses['json'].json(), {'status': 'Unhealthy'})
+        self.assertEqual(responses['openmetrics'].status_code, 200)
+        self.assertIn(b'django_health_check_overall_status 0\n', responses['openmetrics'].content)
+        self.assertNotIn(b'django_health_check_status{', responses['openmetrics'].content)
+        for fmt in ('atom', 'rss'):
+            self.assertEqual(responses[fmt].status_code, 200)
+            self.assertIn(b'Unhealthy', responses[fmt].content)
+        for fmt, response in responses.items():
+            with self.subTest(fmt):
+                self.assertNotIn(b'redis.internal', response.content)
+                self.assertNotIn(b'FailingCheck', response.content)
+
+    def test_anonymous_head_and_options(self):
+        """HEAD and OPTIONS work anonymously; HEAD still reflects the checks' status."""
+        with self.plugin_config(checks=[FAILING_CHECK]):
+            head = Client().head(self.url)
+        options = Client().options(self.url)
+
+        self.assertEqual(head.status_code, 500)
+        self.assertEqual(options.status_code, 200)
+        self.assertIn('GET', options['Allow'])
+
+    def test_post_not_allowed(self):
+        """POST is rejected, with or without credentials, and doesn't run the checks."""
+        with patch.object(FailingCheck, 'run') as run, self.plugin_config(checks=[FAILING_CHECK]):
+            anonymous = Client().post(self.url)
+            with_token = Client().post(self.url, HTTP_AUTHORIZATION=self.create_token())
+
+        self.assertEqual(anonymous.status_code, 405)
+        self.assertEqual(with_token.status_code, 405)
+        run.assert_not_called()
+
+    def test_session_user_gets_full_report(self):
+        """A logged-in user sees each check's result."""
         client = Client()
         client.force_login(self.user)
-        response = client.get(self.url)
+        with self.plugin_config(checks=['health_check.Database', FAILING_CHECK]):
+            response = client.get(self.url, {'format': 'json'})
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(len(response.json()), 2)
+        self.assertIn(b'redis.internal.example:6379', response.content)
+
+    def test_session_user_gets_html_page(self):
+        """A logged-in browser gets the NetBox-styled page."""
+        client = Client()
+        client.force_login(self.user)
+        response = client.get(self.url, HTTP_ACCEPT=self.BROWSER_ACCEPT)
 
         self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'netbox_healthcheck_plugin/healthcheck.html')
 
-    def test_api_token_allowed(self):
-        """An API token is accepted, so monitoring can authenticate without a session."""
-        from users.constants import TOKEN_PREFIX
-        from users.models import Token
-
-        token = Token.objects.create(user=self.user)
-        response = Client().get(
-            self.url,
-            {'format': 'json'},
-            HTTP_AUTHORIZATION=f'Bearer {TOKEN_PREFIX}{token.key}.{token.token}',
-        )
+    def test_api_token_gets_full_report(self):
+        """An API token gets the full report, so monitoring can authenticate without a session."""
+        response = Client().get(self.url, {'format': 'openmetrics'}, HTTP_AUTHORIZATION=self.create_token())
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'application/json')
+        self.assertIn(b'django_health_check_status{check="Database"', response.content)
 
-    def test_invalid_api_token_forbidden(self):
-        """An invalid API token is rejected rather than redirected."""
-        response = Client().get(self.url, HTTP_AUTHORIZATION='Bearer nbt_invalid.invalid')
+    def test_rejected_api_tokens_forbidden(self):
+        """Invalid, expired, disabled and IP-restricted tokens get 403 with the reason, not a downgraded report."""
+        cases = {
+            'invalid': ('Bearer nbt_invalid.invalid', 'Invalid v2 token'),
+            'expired': (self.create_token(expires=timezone.now() - timedelta(days=1)), 'Token expired'),
+            'disabled': (self.create_token(enabled=False), 'Token disabled'),
+            'IP not allowed': (self.create_token(allowed_ips=['192.0.2.0/24']), 'is not permitted'),
+        }
+        for name, (authorization, reason) in cases.items():
+            with self.subTest(name):
+                response = Client().get(self.url, HTTP_AUTHORIZATION=authorization)
 
-        self.assertEqual(response.status_code, 403)
+                self.assertEqual(response.status_code, 403)
+                self.assertIn(reason, response.content.decode())
+
+    def test_database_error_during_authentication(self):
+        """If the token can't be checked because the database is down, the request still gets the status."""
+        from django.db import OperationalError
+
+        with (
+            patch('netbox_healthcheck_plugin.views.TokenAuthentication.authenticate', side_effect=OperationalError),
+            self.assertLogs('netbox_healthcheck_plugin', level='WARNING'),
+            self.plugin_config(checks=[FAILING_CHECK]),
+        ):
+            response = Client().get(self.url, {'format': 'openmetrics'}, HTTP_AUTHORIZATION=self.create_token())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'django_health_check_overall_status 0\n', response.content)
+        self.assertNotIn(b'redis.internal', response.content)
 
     def test_login_not_required_when_disabled(self):
-        """With login_required off, anonymous requests get the results."""
+        """With login_required off, anonymous requests get the full report."""
         with self.plugin_config(login_required=False):
-            response = Client().get(self.url)
+            response = Client().get(self.url, {'format': 'json'})
 
         self.assertEqual(response.status_code, 200)
+        self.assertNotIn('status', response.json())
 
     @override_settings(LOGIN_REQUIRED=False)
-    def test_follows_netbox_login_required(self):
-        """NetBox's own LOGIN_REQUIRED=False also allows anonymous requests."""
-        response = Client().get(self.url)
+    def test_ignores_netbox_login_required(self):
+        """login_required keeps the details private even when NetBox's own LOGIN_REQUIRED is off."""
+        response = Client().get(self.url, {'format': 'json'})
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'status': 'OK'})
 
 
 class TestHealthCheckConfiguration(TestCase):

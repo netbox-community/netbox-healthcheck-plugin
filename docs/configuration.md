@@ -35,28 +35,44 @@ PLUGINS_CONFIG = {
 
 ## Authentication
 
-By default the health check page requires the same login as the rest of NetBox. A request is let through if it comes
-from a logged-in session or carries a NetBox API token, so monitoring tools can authenticate with a token:
+By default only logged-in users and requests carrying a NetBox API token see the full report, with each check and its
+error message. Everyone else gets just the overall status, so load balancers and Kubernetes liveness or readiness
+probes can use the endpoint without credentials, while error messages that may name internal hosts and ports stay
+private.
+
+| Request | Response |
+|---|---|
+| Logged-in session or valid API token | Full report |
+| Anonymous browser (prefers `text/html`) | Redirect to the login page |
+| Any other anonymous request | Overall status only, in the requested format |
+| Invalid, expired, disabled or IP-restricted token | `403 Forbidden`, with the reason |
+
+The status-only response keeps the usual status codes: `200` when every check passes and `500` when any fails (`200`
+for OpenMetrics and feeds, as with the full report). Its body is `OK` or `Unhealthy` as plain text, `{"status": "OK"}`
+as JSON, and only the `django_health_check_overall_status` gauge as OpenMetrics.
+
+```bash
+curl -i https://netbox.example.com/plugins/netbox_healthcheck_plugin/healthcheck/
+```
+
+This applies whatever NetBox's own `LOGIN_REQUIRED` is set to.
+
+To get the full report from a monitoring tool, such as per-check OpenMetrics series, send an API token:
 
 ```bash
 curl -H "Authorization: Bearer nbt_<key>.<token>" \
-  "https://netbox.example.com/plugins/netbox_healthcheck_plugin/healthcheck/?format=json"
+  "https://netbox.example.com/plugins/netbox_healthcheck_plugin/healthcheck/?format=openmetrics"
 ```
 
-Any user's token works and no particular permission is needed, so a dedicated low-privilege user with a read-only
-token is enough.
+Any user's token works and no permission is needed, but a token carries all of its user's API access. Create a
+dedicated user with no permissions for monitoring and turn off write access on its token, rather than reusing a
+person's token.
 
-Anonymous browser requests (those that prefer `text/html`) are redirected to the login page. Every other anonymous
-request, such as a `?format=` request, curl, or a monitoring probe, gets `401 Unauthorized` rather than a redirect,
-because probes like Kubernetes' treat any 3xx response as healthy. An invalid token gets `403 Forbidden`. If NetBox's own
-`LOGIN_REQUIRED` is `False`, the page is open to everyone, like the rest of NetBox.
+Checking a token or session needs the database. If the database is down, the request is answered as an anonymous one,
+so it still gets an unhealthy status (for OpenMetrics, `django_health_check_overall_status 0`) rather than a server
+error.
 
-Checking the token or session needs the database (and the session store), so while the database is down an
-authenticated request fails with a generic `500` error before any check runs, instead of the usual report of which
-check failed. The request still fails, but without detail.
-
-For load balancer health checks and Kubernetes liveness or readiness probes, set `login_required` to `False` so the
-probe needs no credentials and always gets the full report:
+To show the full report to everyone, set `login_required` to `False`:
 
 ```python
 PLUGINS_CONFIG = {
@@ -66,8 +82,7 @@ PLUGINS_CONFIG = {
 }
 ```
 
-Failing checks report error messages that can include internal hostnames and ports, so consider limiting who can reach
-the path (for example at your reverse proxy) when login is not required.
+`login_required` must be `True` or `False`; any other value stops NetBox from starting.
 
 ## Available Health Checks
 
@@ -144,8 +159,8 @@ The plugin automatically reads Redis configuration from NetBox's settings. No ad
 
 ### JSON Response Format
 
-For programmatic access, request the health check endpoint with `Accept: application/json` (plus an API token unless
-`login_required` is `False`; see [Authentication](#authentication)):
+For programmatic access, request the health check endpoint with `Accept: application/json` and an API token (without
+one you get only the overall status; see [Authentication](#authentication)):
 
 ```bash
 curl -H "Accept: application/json" -H "Authorization: Bearer nbt_<key>.<token>" \

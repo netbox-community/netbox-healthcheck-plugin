@@ -5,6 +5,8 @@ __email__ = 'support@netboxlabs.com'
 __version__ = '0.4.0'
 
 
+from django.core.exceptions import ImproperlyConfigured
+
 from netbox.plugins import PluginConfig
 
 
@@ -36,6 +38,16 @@ class HealthCheckConfig(PluginConfig):
             'netbox_healthcheck_plugin.backends.redis.NetBoxRedisTasksHealthCheck',
         ],
     }
+
+    @classmethod
+    def validate(cls, user_config, netbox_version):
+        super().validate(user_config, netbox_version)
+        # Only a real bool: a string such as "false" is truthy, and None or 0 would quietly turn login off.
+        if not isinstance(user_config['login_required'], bool):
+            raise ImproperlyConfigured(
+                f"PLUGINS_CONFIG['{cls.name}']['login_required'] must be True or False, "
+                f'not {user_config["login_required"]!r}.'
+            )
 
 
 config = HealthCheckConfig

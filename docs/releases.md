@@ -5,7 +5,7 @@
 Released 2026-09-24.
 
 ### Breaking Changes
-* The health check page now requires login by default, following NetBox's `LOGIN_REQUIRED`; NetBox API tokens are accepted, so monitoring can authenticate without a session. Anonymous non-browser requests get `401` instead of a login redirect, so existing unauthenticated probes fail rather than silently passing on a `302`; set `login_required: False` in `PLUGINS_CONFIG` to keep the page open to them ([#1](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/1))
+* The health check details now require login by default: anonymous requests get only the overall status (`200`/`500`, `OK`/`Unhealthy`), and anonymous browsers are redirected to the login page. Log in or send a NetBox API token for the per-check report, or set `login_required: False` in `PLUGINS_CONFIG` to show it to everyone. Probes that only look at the status code keep working without credentials; tools that parse the per-check JSON, text or OpenMetrics output need a token ([#1](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/1))
 * Require django-health-check >= 4.6 (fixes startup crash on NetBox 4.7 / Django 6.1: "The EMAIL_BACKEND setting is not available when MAILERS is defined") ([#22](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/22))
 * Default cache check is now `health_check.Cache`; `health_check.cache.backends.CacheBackend` and other 3.x check paths in `PLUGINS_CONFIG['checks']` are still accepted but log a deprecation warning
 * Custom health checks must use the django-health-check 4.x API (`HealthCheck` dataclass with `run()`)
