@@ -36,5 +36,12 @@ class HealthCheckConfig(PluginConfig):
         ]
     }
 
+    def ready(self):
+        super().ready()
+        from .views import validate_checks, warn_legacy_settings
+
+        validate_checks()
+        warn_legacy_settings()
+
 
 config = HealthCheckConfig
