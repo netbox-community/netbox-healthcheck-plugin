@@ -186,7 +186,7 @@ full output of any failing test. Do not claim a test passed without running it.
 ## CI/CD
 
 - **`test.yml`**: a `lint` job (`pre-commit run --all-files`) gates a `test`
-  matrix of Python 3.12–3.14 × NetBox `v4.5.2` / `v4.7.1` / `main`, with Postgres
+  matrix of Python 3.12–3.14 × NetBox `v4.5.2` / `v4.7.2` / `main`, with Postgres
   and Redis service containers. Coverage runs on one leg.
 - **`claude-review.yml`**: Claude PR review on `@claude` mentions from
   collaborators. Needs the `ANTHROPIC_API_KEY` repository secret.

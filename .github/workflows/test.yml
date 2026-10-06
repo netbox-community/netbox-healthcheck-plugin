@@ -74,13 +74,13 @@ jobs:
         python-version: ["3.12", "3.13", "3.14"]
         netbox-ref:
           - 'v4.5.2'
-          - 'v4.7.1'
+          - 'v4.7.2'
           - 'main'
         include:
           - coverage: false
           # Collect coverage once, on the newest Python / max stable NetBox leg.
           - python-version: '3.14'
-            netbox-ref: 'v4.7.1'
+            netbox-ref: 'v4.7.2'
             coverage: true
     services:
       redis:

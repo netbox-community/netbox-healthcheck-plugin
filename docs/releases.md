@@ -2,30 +2,35 @@
 
 ## v0.4.0
 
-Released 2026-09-24.
+Released 2026-10-06.
+
+!!! warning "Login Required by Default"
+    Anonymous requests now get only the overall status (`200`/`500`); the per-check report requires a NetBox login or API token. Status-code probes keep working, but tools that parse the JSON, text or OpenMetrics output need a token. Set `login_required: False` to restore the previous behaviour. See [Authentication](configuration.md#authentication).
+
+!!! warning "django-health-check 4.x"
+    This release requires django-health-check >= 4.6. Custom checks must use the 4.x `HealthCheck` API, JSON keys are now each check's `repr`, and the 3.x `HEALTH_CHECK` settings are no longer read. The psutil memory check now fails at 90% memory used by default. See [Check Options](configuration.md#check-options) for migrating thresholds.
 
 ### Breaking Changes
-* The health check details now require login by default: anonymous requests get only the overall status (`200`/`500`, `OK`/`Unhealthy`), and anonymous browsers are redirected to the login page. Log in or send a NetBox API token for the per-check report, or set `login_required: False` in `PLUGINS_CONFIG` to show it to everyone. Probes that only look at the status code keep working without credentials; tools that parse the per-check JSON, text or OpenMetrics output need a token ([#1](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/1))
-* Require django-health-check >= 4.6 (fixes startup crash on NetBox 4.7 / Django 6.1: "The EMAIL_BACKEND setting is not available when MAILERS is defined") ([#22](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/22))
-* Default cache check is now `health_check.Cache`; `health_check.cache.backends.CacheBackend` and other 3.x check paths in `PLUGINS_CONFIG['checks']` are still accepted but log a deprecation warning
-* Custom health checks must use the django-health-check 4.x API (`HealthCheck` dataclass with `run()`)
-* JSON response keys are now each check's `repr` (e.g. `Database(alias='default')`) with `"OK"` or the error message as the value
-* The memory check fails under different conditions: `health_check.contrib.psutil.backends.MemoryUsage` now maps to `health_check.contrib.psutil.Memory`, which by default fails at 90% memory used and has no free-memory floor (3.x failed only below 100 MB free). A host that runs above 90% memory used will start failing the check. To keep the 3.x behaviour, configure `("health_check.contrib.psutil.Memory", {"min_gibibytes_available": 0.1, "max_memory_usage_percent": None})`
-* Redis health check errors show the exception type and target (e.g. `Redis ConnectionError for redis:6379/0`) but no longer the exception text, which may contain credentials; the details are logged instead
-* Redis health checks now PING the client NetBox itself builds (django-rq's for `tasks`, django-redis's for `caching`) instead of building their own URL from `REDIS`; they report unavailable, instead of falling back to `localhost:6379`, when that client can't be configured. The `build_redis_url_from_config()` and `build_redis_url_options()` helpers were removed
+
+* [#1](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/1) - Require login (session or API token) for the per-check report by default
+* [#22](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/22) - Require django-health-check >= 4.6, fixing a startup crash on NetBox 4.7
+* Redis checks use the clients NetBox builds and no longer fall back to `localhost:6379`; `build_redis_url_from_config()` and `build_redis_url_options()` were removed
+* Redis check errors no longer include the exception text, which may contain credentials
 
 ### Enhancements
-* Redis health checks support every connection option NetBox does: Redis Sentinel (`SENTINELS` / `SENTINEL_SERVICE`), `URL` (including Unix sockets) and `KWARGS`
-* Redis health checks add `redis_instance`, `host`, `port` and `db` labels (`path` for Unix sockets, `service` for Sentinel) to the OpenMetrics output
-* Checks accept options as `(path, {options})` pairs in `PLUGINS_CONFIG['checks']`, replacing django-health-check 3.x's `HEALTH_CHECK` settings ([#12](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/12))
-* The django-health-check 3.x psutil paths (`health_check.contrib.psutil.backends.DiskUsage` / `MemoryUsage`) map to `health_check.contrib.psutil.Disk` / `Memory`, and 3.x paths are also remapped inside `(path, options)` pairs. A warning is logged at startup if the 3.x `HEALTH_CHECK` setting (e.g. `DISK_USAGE_MAX`, `MEMORY_MIN`) is still set, since its thresholds are no longer applied
-* `PLUGINS_CONFIG['checks']` is validated at startup; an invalid entry raises `ImproperlyConfigured` instead of failing every health check request with a 500
-* Document the Storage, Mail, DNS and psutil checks, OpenMetrics labels, and the always-200 status of the OpenMetrics and feed formats
+
+* Add support for NetBox 4.7
+* [#12](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/12) - Accept per-check options as `(path, {options})` pairs in `PLUGINS_CONFIG['checks']`
+* Support Redis Sentinel, `URL` (including Unix sockets) and `KWARGS` in the Redis checks
+* Add `redis_instance`, `host`, `port` and `db` labels to the Redis checks' OpenMetrics output
+* Map django-health-check 3.x check paths to their 4.x equivalents, logging a deprecation warning
+* Validate `PLUGINS_CONFIG['checks']` at startup
 
 ### Bug Fixes
-* URL-encode the Redis username and password so special characters (including `/`) no longer break the connection ([#20](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/20) by [@tacerus](https://github.com/tacerus), [#21](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/21) by [@RangerRick](https://github.com/RangerRick))
-* Redis passwords are no longer exposed in error messages or chained exceptions, and username-only URLs are no longer mangled when masked ([#21](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/21))
-* Only Redis errors are reported as a failed Redis check; unexpected exceptions propagate to django-health-check's handler ([#21](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/21))
+
+* [#20](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/20), [#21](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/21) - Fix Redis connections when the username or password contains special characters (thanks [@tacerus](https://github.com/tacerus), [@RangerRick](https://github.com/RangerRick))
+* [#21](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/21) - Prevent Redis passwords from appearing in error messages
+* [#21](https://github.com/netbox-community/netbox-healthcheck-plugin/pull/21) - Report only Redis errors as Redis check failures
 
 ---
 
