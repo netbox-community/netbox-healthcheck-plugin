@@ -5,7 +5,7 @@ release of NetBox HealthCheck Plugin.
 
 | Plugin Version | Minimum NetBox Version | Maximum NetBox Version | Minimum Python |
 |----------------|------------------------|------------------------|----------------|
-| 0.4.0 | 4.5.0 | 4.7.99 | 3.12 |
+| 0.4.0 | 4.5.0 | 4.7.x | 3.12 |
 | 0.3.0 | 4.5.0 | 4.6.x | 3.12 |
 | 0.2.0 | 4.0.0 | 4.4.x | 3.10 |
 | 0.1.4 | 3.4.0 | 3.7.x | 3.10 |

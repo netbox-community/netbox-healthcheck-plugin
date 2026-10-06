@@ -2,7 +2,7 @@
 
 ## v0.4.0
 
-Released 2026-09-24.
+Released 2026-10-06.
 
 ### Breaking Changes
 * The health check details now require login by default: anonymous requests get only the overall status (`200`/`500`, `OK`/`Unhealthy`), and anonymous browsers are redirected to the login page. Log in or send a NetBox API token for the per-check report, or set `login_required: False` in `PLUGINS_CONFIG` to show it to everyone. Probes that only look at the status code keep working without credentials; tools that parse the per-check JSON, text or OpenMetrics output need a token ([#1](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/1))
@@ -15,6 +15,7 @@ Released 2026-09-24.
 * Redis health checks now PING the client NetBox itself builds (django-rq's for `tasks`, django-redis's for `caching`) instead of building their own URL from `REDIS`; they report unavailable, instead of falling back to `localhost:6379`, when that client can't be configured. The `build_redis_url_from_config()` and `build_redis_url_options()` helpers were removed
 
 ### Enhancements
+* Add support for NetBox 4.7 (supported range is now 4.5.0 – 4.7.x)
 * Redis health checks support every connection option NetBox does: Redis Sentinel (`SENTINELS` / `SENTINEL_SERVICE`), `URL` (including Unix sockets) and `KWARGS`
 * Redis health checks add `redis_instance`, `host`, `port` and `db` labels (`path` for Unix sockets, `service` for Sentinel) to the OpenMetrics output
 * Checks accept options as `(path, {options})` pairs in `PLUGINS_CONFIG['checks']`, replacing django-health-check 3.x's `HEALTH_CHECK` settings ([#12](https://github.com/netbox-community/netbox-healthcheck-plugin/issues/12))
