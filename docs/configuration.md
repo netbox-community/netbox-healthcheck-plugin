@@ -63,6 +63,57 @@ When upgrading from 3.x, move any `HEALTH_CHECK` thresholds into check options. 
 
 The `checks` list is validated when NetBox starts: an entry that can't be imported, isn't a health check, or has options that aren't a dict or that the check doesn't accept stops NetBox with an `ImproperlyConfigured` error naming the entry, instead of failing every health check request.
 
+## Authentication
+
+By default only logged-in users and requests carrying a NetBox API token see the full report, with each check and its
+error message. Everyone else gets just the overall status, so load balancers and Kubernetes liveness or readiness
+probes can use the endpoint without credentials, while error messages that may name internal hosts and ports stay
+private.
+
+| Request | Response |
+|---|---|
+| Logged-in session or valid API token | Full report |
+| Anonymous browser (prefers `text/html`) | Redirect to the login page |
+| Any other anonymous request | Overall status only, in the requested format |
+| Invalid, expired, disabled or IP-restricted token | `403 Forbidden`, with the reason |
+
+The status-only response keeps the usual status codes: `200` when every check passes and `500` when any fails (`200`
+for OpenMetrics and feeds, as with the full report). Its body is `OK` or `Unhealthy` as plain text, `{"status": "OK"}`
+as JSON, and only the `django_health_check_overall_status` gauge as OpenMetrics.
+
+```bash
+curl -i https://netbox.example.com/plugins/netbox_healthcheck_plugin/healthcheck/
+```
+
+This applies whatever NetBox's own `LOGIN_REQUIRED` is set to.
+
+To get the full report from a monitoring tool, such as per-check OpenMetrics series, send an API token:
+
+```bash
+curl -H "Authorization: Bearer nbt_<key>.<token>" \
+  "https://netbox.example.com/plugins/netbox_healthcheck_plugin/healthcheck/?format=openmetrics"
+```
+
+Any user's token works and no permission is needed, but a token carries all of its user's API access. Create a
+dedicated user with no permissions for monitoring and turn off write access on its token, rather than reusing a
+person's token.
+
+Checking a token or session needs the database. If the database is down, the request is answered as an anonymous one,
+so it still gets an unhealthy status (for OpenMetrics, `django_health_check_overall_status 0`) rather than a server
+error.
+
+To show the full report to everyone, set `login_required` to `False`:
+
+```python
+PLUGINS_CONFIG = {
+    "netbox_healthcheck_plugin": {
+        "login_required": False,
+    }
+}
+```
+
+`login_required` must be `True` or `False`; any other value stops NetBox from starting.
+
 ## Available Health Checks
 
 ### Built-in Checks
@@ -166,10 +217,12 @@ The plugin uses NetBox's own `REDIS` configuration. No additional configuration 
 
 ### JSON Response Format
 
-For programmatic access, request the health check endpoint with `Accept: application/json`:
+For programmatic access, request the health check endpoint with `Accept: application/json` and an API token (without
+one you get only the overall status; see [Authentication](#authentication)):
 
 ```bash
-curl -H "Accept: application/json" https://netbox.example.com/plugins/netbox_healthcheck_plugin/healthcheck/
+curl -H "Accept: application/json" -H "Authorization: Bearer nbt_<key>.<token>" \
+  https://netbox.example.com/plugins/netbox_healthcheck_plugin/healthcheck/
 ```
 
 Response format (keys are each check's `repr`):

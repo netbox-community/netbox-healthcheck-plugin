@@ -71,6 +71,11 @@ The supported range per release is in `COMPATIBILITY.md`.
 
 ### How a request is served
 
+0. When `PLUGINS_CONFIG[...]['login_required']` is `True` (the default; `HealthCheckConfig.validate` insists on a
+   bool), `HealthCheckListView.authenticate` checks the session, then NetBox's `TokenAuthentication`, in a thread,
+   regardless of NetBox's `LOGIN_REQUIRED`. Authenticated → full report. Anonymous browser → login redirect. Other
+   anonymous, or a `DatabaseError` during auth → checks still run but `detailed = False`, so the `render_to_response*`
+   overrides return only the overall status. Rejected token → 403 with the reason.
 1. `HealthCheckListView.checks` reads `PLUGINS_CONFIG['netbox_healthcheck_plugin']['checks']`
    (defaults in `PluginConfig.default_settings`; entries are dotted paths or
    `(path, {kwargs})` pairs) and maps django-health-check 3.x dotted paths to
